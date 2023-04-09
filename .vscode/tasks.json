@@ -6,12 +6,12 @@
             "type": "shell",
             "command": "sjasmplus",
             "options": {
-                "cwd": "q:\\Development\\Dev-ZX\\_void\\"
+                "cwd": "${workspaceFolder}"
             },
             "args": [
                 "--nologo",
                 "--lst=main.lst",
-                "--inc=Q:\\Development\\Dev-ZX\\Inc\\",
+                "--inc=${workspaceFolder}\\..\\Inc\\",
                 "--sym=main.sym",
                 "main.a80"
             ],
@@ -20,7 +20,10 @@
                 "options": {
                     "shell": {
                         "executable": "cmd.exe",
-                        "args": ["/d", "/c"]
+                        "args": [
+                            "/d",
+                            "/c"
+                        ]
                     }
                 }
             },
@@ -36,6 +39,25 @@
                 "panel": "shared"
             },
             "problemMatcher": "$errmatcher-sjasmplus"
+        },
+        {
+            "label": "InkSpector",
+            "type": "shell",
+            "command": "C:\\Program Files\\Inkland\\InkSpector 2\\InkSpector64.exe",
+            "args": [
+                "${workspaceFolder}\\main.sna"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "isBackground": true,
+            "presentation": {
+                "echo": false,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "dedicated"
+            },
+            "problemMatcher": []
         }
     ]
 }
