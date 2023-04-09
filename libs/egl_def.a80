@@ -1,0 +1,200 @@
+; demo definition header
+; put here all definitions tha must be at the beginning due to compiler
+
+; ----------scroll----------
+scroll_addr:    EQU    #5059
+scroll_width:   EQU    19
+scroll_height:  EQU    8
+; scroll_font:    EQU    60*256
+
+              STRUCT  scrl
+text:          dw      0
+addr:          dw      0
+wdth:          db      0
+font:          dw      0
+txt:           dw      0
+pos:           db      0
+cbuf:          ds      8
+              ENDS
+        
+KLineModePut:    EQU    #7b               ; ld a,e
+KLineModeAnd:    EQU    #a3               ; and e
+KLineModeOr:     EQU    #b3               ; or e
+KLineModeXor:    EQU    #ab               ; xor e
+KLineDirUp:      EQU    0
+KLineDirDown:    EQU    1
+KLineDirLeft:    EQU    0
+KLineDirRight:   EQU    1
+KLineAttrUp:     EQU    2                 ; bit 1 set
+KLineAttrDown:   EQU    3
+KLineAttrLeft:   EQU    2                 ; bit 1 set
+KLineAttrRight:  EQU    3
+KLineVramOff:    EQU    #80
+;-- egl_funscr
+KScrollOr:       EQU    #b1               ; or c
+KScrollAnd:      EQU    #a1               ; and c
+KScrollXor:      EQU    #a9               ; xor c
+KScrollNop:      EQU    #00               ; nop
+KScrollPut:      EQU    #79
+
+              STRUCT lineh
+atxy:          dw     0                 ;x position (char)
+wdth:          db     0
+heig:          db     0
+val:           db     0                 ; value to be manipulated with vram
+aox:           db     0                 ; instruction OPC (and,or,xor)
+dir:           db     0                 ; 0-vram up, 1-vram down
+page:          db     0                 ; 0 | #80 to alter #40 or #c0 addressing, 7-bits for paging
+vram:          dw     0                 
+hght:          db     0                 ; height counter
+              ENDS
+              
+              STRUCT linev
+atxy:          dw     0                 ; xy in pixels
+widt:          db     0                 ; width of rectangle
+hght:          db     0                 ; height of rectangle
+val:           db     0                 ; value to be manipulated with vram
+aox:           db     0                 ; instruction OPC (and,or,xor)
+dir:           db     0                 ; 0-left, 1-right
+page:          db     0                 ; 0 | #80 to alter #40 or #c0 addressing, 7-bits for paging
+vram:          dw     0                                 
+wdth:          db     0                 ; width counter
+              ENDS
+              
+              STRUCT  clatt
+posy:          db     0                 ; char y position of cleared rows
+hght:          db     0                 ; number of rows to clear
+data:          dw     0                 ; attribute data, bit 7=1 = end of data
+mode:          db     0
+; mode: bit 0=0 - no border,  =1 - border as paper
+;       bit 1=0 - no repeat,  =1 - repeat sequence
+;       bit 2=0 - no page,    =1 - page out memory
+;       bit 3=0 - no flip vrm =1 - flip vram (xor page value with %00001011)
+;       bit 7=0 - addr #58000 =1  #d8 addressing
+page:          db     0                 ;
+addr:          dw     0                 ; pointer for vram
+ptr:           dw     0                 ; pointer for attr data
+              ENDS                                               
+
+              STRUCT  atwin
+;atx           db     0
+;aty           db     0
+atxy:          dw     0
+width:         db     0
+hght:          db     0
+data:          dw     0
+mode:          db     0
+; mode: bit 0=0 - no border,  =1 - border as paper
+;       bit 1=0 - no repeat,  =1 - repeat sequence
+;       bit 2=0 - no page,    =1 - page out memory
+;       bit 3=0 - no flip vrm =1 - flip vram (xor page value with %00001011)
+;       bit 7=0 - addr #58000 =1  #d8 addressing
+page:          db     0
+addr:          dw     0
+ptr:           dw     0
+              ENDS                                               
+
+_rlce:        EQU     #03cb                                                    
+_rlcd:        EQU     #02cb
+_rrce:        EQU     #0bcb    
+_rrcd:        EQU     #0acb
+
+              STRUCT  pxwin
+atxy:          dw     0
+widt:          db     0
+hght:          db     0
+data:          dw     0                 ; data starts with count of successive bytes
+mode:          db     0                 ; b7 - vram #40 | #c0
+                                        ; b0 - paging enabled
+page:          db     0
+modh:          dw     0
+modl:          dw     0
+vram:          dw     0
+ptr:           dw     0
+cnt:           db     0
+              ENDS                                               
+              
+              STRUCT itr
+beg:            db     0  ; starting value
+end:            db     0  ; ending value
+cnt:            db     0  ; number of iterations
+adr:            dw     0  ; address to be modified
+ini:            db     0  ; init flag 0-needs to be initiated, 1-running
+add:            dw     0  ; add is calculated add value
+str:            db     0  ; fixed point, str is low byte, val is hi byte
+val:            db     0  ; val is new itarated value
+neg:            db     0  ; flag showing reverse iteration
+              ENDS
+
+KGfxVramUp:     EQU    0
+KGfxVramDown:   EQU    2
+KGfxAttrUp:     EQU    1
+KGfxAttrDown:   EQU    3
+KGfxCont:       EQU    4              
+
+              STRUCT gfx
+atxy:           dw     0                 ; position (char x, [char for attr] y)
+pdata:          dw     0                 ; gfx data
+wdth:           dw     0                 
+phght:          db     0
+mode:           db     0                 ; 0 - vram up
+                                         ; 1 - attr up
+                                         ; 2 - vram down
+                                         ; 3 - attr down
+                                         ; 4 - continuous
+page:           db     0                 ; page. #80 is offset for vram #40|#c0                 
+data:           dw     0                 ; gfx data pointer
+vram:           dw     0                 ; vram
+hght:           db     0                 ; current drawn line            
+              ENDS
+
+KBlitDirUp:    EQU    0
+KBlitDirDown:  EQU    1    
+KBlitDirLeft:  EQU    2
+KBlitDirRight: EQU    3  
+              
+              STRUCT blit
+atxy:          dw     0                  ; position (char x, [char for attr] y)
+pdata:         dw     0                  ; data for graphics
+wdth:          db     0                  ; width of gfx
+hght:          db     0                  ; height of gfx
+stps:          db     0                  ; number of iterations
+dir:           db     0                  ; direction (0-up, 1-down, 2-left, 3-right)                  
+page:          db     0                  ; page. #80 is offset for vram #40|#c0
+vram:          dw     0                  ; calculated vram
+cstp:          db     0                  ; steps - current state                 
+              ENDS
+              
+              STRUCT  vpxy               ; vertical alien print routine
+atx:            db      0
+aty:            db      0   
+pdr:            db      0   ; page and direction
+txt:            dw      0
+fnt:            dw      0   ; font addr
+vrm:            dw      0
+curx:           db      0
+cury:           db      0
+ctxt:           dw      0
+              ENDS
+
+           STRUCT  sfzx               ; FZX print (Andrew Owen)
+FONT:       dw     0
+TEXT:       dw     0
+MARGIN:     db     0
+spcy:       db     0
+CTXT:       dw     0
+P_FLAG:     db     0
+P_COL:      db     0
+P_LIN:      db     0
+           ENDS
+
+           STRUCT  shdf
+font:       dw      0
+text:       dw      0
+margin:     db      0
+spcx:       db      0
+spcy:       db      0
+posx:       db      0
+posy:       db      0
+curtext:    dw      0
+           ENDS

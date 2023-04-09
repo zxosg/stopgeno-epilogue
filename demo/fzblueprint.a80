@@ -1,0 +1,98 @@
+Vy: = 24
+Sy: = 24
+fzblueprint1: sfzx ffnt5, fzblueprint1.text, 8, 0
+.text:  db   22,Vy,8
+        db   "The state of demomaking",#ff
+Vy=Vy+Sy
+fzblueprint2: sfzx ffnt5, fzblueprint2.text, 8, 0
+.text:  db   22,Vy,8
+        db   "has led to the extinction",#ff
+Vy=Vy+Sy
+fzblueprint3: sfzx ffnt5, fzblueprint3.text, 8, 0
+.text:  db   22,Vy,8
+        db   "of almost all kittens.",#ff
+Vy=Vy+Sy
+fzblueprint4: sfzx ffnt5, fzblueprint4.text, 8, 0
+.text:  db   22,Vy,8
+        db   "The space ark with last",#ff
+Vy=Vy+Sy
+fzblueprint5: sfzx ffnt5, fzblueprint5.text, 8, 0
+.text:  db   22,Vy,8
+        db   "surviving species is",#ff
+Vy=Vy+Sy
+fzblueprint6: sfzx ffnt5, fzblueprint6.text, 8, 0
+.text:  db   22,Vy,8
+        db   "leaving planet Earth now.",#ff
+
+
+/*
+;rectangle fill
+        STRUCT rctf
+posx:   db     0         ; char
+posy:   db     0
+wdth:   db     0         ; char
+hght:   db     0
+fill:   db     0
+mode:   db     0         ; 0-1  00 - put, 01 - or, 10 - and, 11 xor
+                         ; 2    vram addr : 0=#4000, 1=#c000
+                         ; 3    rotate gfx: 0=don't, 1=rrc <fill> every next line
+                         ; 4    attributes
+        ENDS
+*/
+
+x=1
+y=3
+s=3
+atrBP1: atwin x+y*#100, 24, 2, bpadata, 0, o0
+y=y+s
+atrBP2: atwin x+y*#100, 22, 2, bpadata, 0, o0
+y=y+s
+atrBP3: atwin x+y*#100, 18, 2, bpadata, 0, o0
+y=y+s
+atrBP4: atwin x+y*#100, 22, 2, bpadata, 0, o0
+y=y+s
+atrBP5: atwin x+y*#100, 18, 2, bpadata, 0, o0
+y=y+s
+atrBP6: atwin x+y*#100, 24, 2, bpadata, 0, o0
+
+atrBP6h: atwin x+y*#100, 24, 2, bphilig, %00'00'00'10, o0       ; highlight of last line
+
+bpadata:
+cl=#40+#3e
+s =-8
+        db    cl
+cl=cl+s
+        db    cl
+cl=cl+s
+        db    cl
+cl=cl+s
+        db    cl
+cl=cl+s
+        db    cl
+cl=cl+s
+        db    cl
+cl=cl+s
+        db    cl
+        db    #08+#46
+        db    #08+#46
+        db    cl
+        db    #ff
+
+bphilig:
+        db    #47,#45,#ff
+
+
+x=1
+y=3*8
+s=3*8
+rcrBP1:  rctf  x,y,24,16,0,%00000000
+y=y+s
+rcrBP2:  rctf  x,y,22,16,0,%00000000
+y=y+s
+rcrBP3:  rctf  x,y,18,16,0,%00000000
+y=y+s
+rcrBP4:  rctf  x,y,22,16,0,%00000000
+y=y+s
+rcrBP5:  rctf  x,y,18,16,0,%00000000
+y=y+s
+rcrBP6:  rctf  x,y,24,16,0,%00000000

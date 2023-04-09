@@ -1,0 +1,32 @@
+        MODULE keys
+        DEFINE keys_version 1
+run:
+         ld     a,(ix+kbd.prev)  ; previous port value
+         and    (ix+kbd.dbnc)   ; debounce mask
+         ld     e,a
+         ld     a,(ix+kbd.port)
+         in     a,(#fe)
+         cpl
+         ld     (ix+kbd.prev),a
+         ld     d,a
+         xor    e
+         and    d
+         rrca   
+         jr     c,.r0
+         rrca
+         jr     c,.r1
+         rrca
+         jr     c,.r2
+         rrca
+         jr     c,.r3
+         rrca
+         jr     c,.r4
+         ret
+
+.r0:     ld     hl,(ix+kbd.r0) : jp (hl)        
+.r1:     ld     hl,(ix+kbd.r1) : jp (hl)
+.r2:     ld     hl,(ix+kbd.r2) : jp (hl)
+.r3:     ld     hl,(ix+kbd.r3) : jp (hl)
+.r4:     ld     hl,(ix+kbd.r4) : jp (hl)
+         display "keys:",$-run
+        ENDMODULE

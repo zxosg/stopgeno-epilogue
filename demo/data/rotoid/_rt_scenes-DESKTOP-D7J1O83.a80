@@ -1,0 +1,661 @@
+; rotoid scenes (27.04.2019)
+;-------------------------------------------------------------------------------
+          DEFINE KSceneNoCut #8000                        ; if added to scene duration then cut-scene/switch to next scene
+                                                          ;  won't delete objects on screen (rotoid.setScene)
+_sc:
+scrplay:  dw      0                                       ; pointer to screenplay table
+.part1:
+          IFDEF   d_scrplay
+          dw      scenes.pyrplan ,#060
+          dw      scenes.pyrtop  ,#040
+          dw      scenes.city    ,#070                    ; scene, duration (number of passes in main loop)
+          dw      scenes.calpini ,#080
+          dw      scenes.calpams ,#0a0+KSceneNoCut
+;          dw      scenes.nostrom ,#080
+          dw      scenes.station ,#080
+          dw      scenes.narcis  ,#100
+          dw      scenes.rtype   ,#090
+          ENDIF
+          dw      0                                       ; end of scene table
+;-------------------------------------------------------------------------------
+scenes:
+.edit:    dw s_edit.init   , s_edit.erase   , s_edit.draw    ;--- segment editor
+.scedit:  dw s_scedit.init , s_scedit.erase , s_scedit.draw  ;--- scene editor
+
+          IFDEF d_scrplay
+;-------------------------------------------------------------------------------
+.city:    dw s_city.init   , s_city.erase   , s_city.draw    ;--- pyramids
+.narcis:  dw s_narcis.init , s_narcis.erase , s_narcis.draw  ;--- narcissus approaching from the planet
+.station: dw s_station.init, s_station.erase, s_station.draw ;--- station nearby planet
+.nostrom: dw s_nostrom.init, s_nostrom.erase, s_nostrom.draw ;--- nostromo approaching planet
+.calpams: dw s_calpams.init, s_calpams.erase, s_calpams.draw ;--- calpamos system
+.calpini: dw s_calpini.init, s_calpini.erase, s_calpini.draw ;--- calpamos intro scene
+.pyrtop:  dw s_pyrtop.init , s_pyrtop.erase , s_pyrtop.draw  ;--- pyramids top view
+.rtype:   dw s_rtype.init  , s_rtype.erase  , s_rtype.draw   ;--- rtype scene
+.pyrplan: dw s_pyrplan.init, s_pyrplan.erase, s_pyrplan.draw ;--- pyramid planet landing
+;-------------------------------------------------------------------------------
+
+          ENDIF
+
+;----------------------------------
+;.edit_init:
+s_edit:
+.init:
+          cnmScnXYZ     0,0,0
+          cnmScrCenter  127+56,0
+          cnmScnFar     #200
+          cnmScnFade    #100
+          cnmScrTopBot  0,191
+;          cnmMobPos     mobEdit, 0,  0, 50
+          cnmLightShade  #05
+          cnmFocal       3
+          ret
+
+;.edit_erase:
+.erase:
+          mdel mobEdit
+          dw   0
+;.edit_draw:
+.draw:
+          mdraw mobEdit
+          dw   0
+
+;----------------------------------
+
+s_scedit:
+.init:
+          cnmScreenplayDisable
+          cnmFocal 3
+          IF 0
+            cnmScnXYZ      0,0,0
+            cnmScrCenter   127,64
+            cnmScnFar      #300
+            cnmScnFade     #80
+            cnmScrTopBot   16,167
+            cnmLightShade  #03
+            cnmLightBright #00,#07
+            cnmLightMode   #00
+            cnmLightPos    #d000,#100
+          ELSE
+
+;          include        "demo/data/rotoid/_narcissus_scene.sce.a80"
+;          include        "demo/data/rotoid/void_scene.sce.a80"
+;          include        "demo/data/rotoid/void2.sce.a80"
+;          include        "demo/data/rotoid/nostromo_scene.sce.a80"
+;          include        "demo/data/rotoid/calpamos.sce.a80"
+;          include        "demo/data/rotoid/pyramid_top.sce.a80"
+           include        "demo/data/rotoid/pyramid_planet.sce.a80"
+          ENDIF
+
+;          cnmMobPos      mobR10  , #fe00, #00, #80           ; x=fe00
+;          cnmMobPos      mobUfo1 , #0180, #00, #70
+;          cnmMobPos      mobMoon3, #2000, #400, #200
+;          cnmScnXYZ      #ffef,0,#18
+
+/*
+          ld             a,o7 xor #0a
+          ld             (run.vpage+1),a
+          callix         drawMultiObject, mobCalpamos
+          msaveHDIpage   9,56,#10,19,temp3k
+          call           scrCopy
+*/
+
+; mobgfx test
+;          rscUnpack     KRscJupiter, res_tab
+;          rscLoad       KRscSaturn, res_tab
+;          rscUnpack     KRscJupiter_Bw, res_tab
+
+;          rscUnpack     KRscCloudB, res_tab
+;          rscUnpack     KRscCloudL, res_tab
+;          rscUnpack     KRscCloudR, res_tab
+
+;          rscUnpack     KRscPlanet2, res_tab
+;          rscUnpack     KRscNMoon1, res_tab
+;          rscUnpack     KRscNMoon2, res_tab
+
+; end init--
+/*
+          ld    a,(screen.color)
+          ld    b,#00
+          ld    ix,temp3k
+          call  recolHDI
+*/
+/*
+         rscRunIX KRscHdfIni, res_tab, hdtext3
+1        rscRunIX KRscHdfRun, res_tab, hdtext3
+         jp     nc,1B
+         msaveHDI 0,8,25,16,CloudB
+;         msaveHDI 16,8,5,16,0
+;         callix    invMobHdi, gfxText
+*/
+         ret
+/*
+         ld     ix,#0600
+         call   rotoid.scrClear
+         ret
+*/
+
+;.scedit_erase:
+.erase:
+          dw     makeStars.erase, starCalpamos
+          mdel   mobSun
+          mdel   mobPlanet
+          mdel   mobPlant2
+;          mdel   mobPyrtop
+
+;          mdel   mobCalpamos
+;          mdel   mobNostromo1
+;          mdel   mobNostromo2
+
+;          mdel   .mob1
+;          mdel   .mob2
+;          mdel   .mob3
+;          mdel   .mob4
+;          mdel   .mob5
+;          mdel   mobNarcissus
+;          mdel   mobStation
+;          mdel   mobMoon3
+/*
+          mdel  mobLetV
+          mdel  mobLetO
+          mdel  mobLetI
+          mdel  mobLetD
+*/
+;          mdel   mobStation
+;          mdel   mobNarcis2
+          dw     0
+
+;.scedit_draw:
+.draw:
+          dw     makeStars.draw, starCalpamos
+          mdraw  mobSun
+          mSort  2
+          mdraw  mobPlant2
+          mdraw  mobPlanet
+
+;          mdraw mobTiles2
+;          mdraw mobPyrtop
+;
+;          mdraw  mobMoon3
+;          dw     egl.border, #0107
+;            mdraw  mobMissile
+;          dw     egl.border, #0100
+
+;          mSort  2
+;          mdraw  mobR10
+;          mdraw  mobUfo1
+;          mdraw  mobCalpamos
+;          dw     drawHDI, gfxLV223
+;          mdraw  mobNostromo2
+;          mdraw  mobNostromo1
+
+;          dw     drawHDI, gfxPlanet2
+;          dw     drawHDI, gfxNMoon1
+;          dw     drawHDI, gfxNMoon2
+
+;          mdraw  mobNarcis2
+
+;          dw     drawGfxHdr, mobSaturn
+;          dw     makeStars.draw, starCity
+;          dw     drawHDI, gfxEye
+;          dw     drawHDI, gfxCloudB
+;          dw     drawHDI, gfxCloudL
+;          dw     drawHDI, gfxCloudR
+;          mdraw  mobNarcis2
+;          mdraw  mobMoon3
+
+;          mSort  2
+;          mdraw  .mob1
+;          mdraw  .mob4
+;          dw     drawHDI, gfxText
+;          mdraw  mobNarcissus
+;          mdraw  .mob5
+;          mdraw  mobStation
+
+/*
+          mdraw  mobLetD
+          mdraw  mobLetI
+          mdraw  mobLetO
+          mdraw  mobLetV
+*/
+;--------- animations
+;           dw     egl.border, #0105
+
+;           mAniMoveCDf  scene.posz,3,0,#30,#10
+;        MACRO    mAniMoveAcc _mob, _off, _cnt, _dly, _sp_start, _sp_end, _spd
+;         mAniMoveAcc scene.posz, 0, #40, #0 ,  0, #3,  #001f
+;         mAniMoveAcc scene.posz, 0, #10, #30, #3, #0, -#0140
+;         mAniMoveAcc scene.posx, 0, #10, #30 , 0, #8,  #0080
+
+;        MACRO    mAniMoveV0S _mob, _off, _cnt, _dly, _v0, _s
+;          mAniMoveV0S  mobPlant2, mobdef.posx, 200, 0, 30, 1000
+;          mAniMoveV0S  mobPlant2, mobdef.posy, 200, 0, -10, 300
+;                      mAniMoveCyc _mob, _off, _dly, _cnt, _s
+;          mAniMoveCos  mobPlant2, mobdef.posx, 0, 50, 200
+          mAniMoveSin  mobPlant2, mobdef.posy, 0, 50, 200
+
+          dw     egl.border, #0105
+
+;        MACRO    mAniMoveV0E _mob, _off, _dly, _v0, _ve, _s
+;          mAniMoveV0E  mobPlant2, mobdef.posy, 0, 0, 10, 1000
+
+
+/*
+          dw animate.moveAccf,scene.posx
+          db #00,#ff    ; delay count
+          dw #00,#0020  ; temp, adder
+          db 0,#2        ; speed_start, speed_end
+          db 0          ; offset
+*/
+;           dw        animate.strobe, objR10flame
+
+;           mAniMoveXYZf scene, 0, 13, 0, 0
+;           mAniMoveXYZf mobR10, mobdef.posx, 14, 0, 0
+;           dw        animate.moveXYZ, 0, scene, 44,#0,#0                       ; move scene
+;           dw        animate.moveXYZ, mobdef.posx, mobR10, 46, #0000, #0000    ; move object mobStat in position X
+
+;           mAniMoveCD  mobR10,-2,mobdef.posz,#30,#70
+;           mAniMoveCD  mobR10, 2,mobdef.posz,#30,#ff
+
+;           mAniMoveXYZ mobUfo1, mobdef.posx, 42, 0, 0
+;           dw        animate.moveXYZ, mobdef.posx, mobUfo1, 42, #0000, #0000    ; move object mobStat in position X
+
+;           mAniMoveCD  mobUfo1,-1,mobdef.posz,#40,#ff
+;           dw        animate.linkxyz, aniR10_Ufo1_lnk
+;           dw        animate.sin, aniR10_Ufo1_csz
+;           dw        animate.sin, aniR10_Ufo1_csy
+
+;           mAniMoveCD  objMissile, 28, objdef.rposx, #ff, #20
+;           dw        animate.linkxyz, aniR10_Mssl_lnk
+;           dw     egl.border, #0100
+
+;           mAniMoveCD    mobR10,-2,mobdef.posz,#30,#b0
+;           mAniMoveCD    mobR10, 2,mobdef.posz,#30,#ff
+;
+
+;          mAniMoveCD scene.posx,-1,0,#40,0+#20
+;          dw     animate.linkxyz,aniNostromo_lnk
+;          mAniMoveCD scene.posz,-1,0,#18,#28+#20
+;          mAniMoveCD scene.posx,-1,0,#40,0+#20
+
+;          mAniMoveCD  mobNostromo1,1,mobdef.posz,#ff,#20
+
+;          mAniMoveCD scene.posz,-1,0,#ff,#40
+
+/*
+          dw     animate.pal, palNarcis2l
+          dw     animate.pal, palNarcis2r
+*/
+/*
+          dw     animate.rotoid_one , aniUfo1_x
+          dw     animate.rotoid_one , aniUfo1_z
+          dw     animate.linkxyz    , aniUfo1_lnk
+*/
+/*
+          dw     animate.rotoid_one_hidden,aniStation1x
+          dw     animate.pal, palStation3
+*/
+;          dw     animate.link, aniUfo1z
+;          dw     animate.link, aniUfo1x
+;          dw     animate.rotoid_one,aniStation3
+;          dw     animate.rotoid_one,aniStation1fy
+;          dw     animate.rotoid_one,aniStation1by
+;          dw     animate.pal, palStation1
+;          dw     animate.pal, palStation2
+          dw     0
+
+;        MACRO    mAniMoveV0S _mob, _off, _cnt, _dly, _v0, _s
+;          mAniMoveV0S  mobNostromo1, mobdef.posz, 50, 10, 10, 100
+;        MACRO    mAniMoveV0E _mob, _off, _dly, _v0, _ve, _s
+;          mAniMoveV0E  mobNostromo1, mobdef.posz, 10, 10, 1, 100
+
+;---------------------------------------------------------------
+          IFDEF d_scrplay
+;---------------------------------------------------------------
+
+s_station:
+.init:
+          cnmScreenplayEnable
+          cnmScnXYZ      0,0,0
+          cnmScrCenter   #7f,#40
+          cnmScnFar      #100
+          cnmScnFade     #000
+          cnmScrTopBot   16,167
+          cnmLightShade  #02
+          cnmLightBright #fa,#fc
+          cnmLightMode   #00
+          cnmLightPos    #d000,#100
+          cnmMobPos      mobStation,#ff00, #ffa0, #40
+          rscUnpack      KRscPlanet2, res_tab
+          callix         rotoid.scrClear, #4600
+          cnmFocal       4
+          cnmMobPos      mobStation,-#180,-#80,#00
+          ret
+
+;.station_erase:
+.erase:
+          dw     makeStars.erase, starCity
+          mdel   mobStation
+          dw     0
+
+;.station_draw:
+.draw:
+          dw     makeStars.draw, starCity
+          dw     drawHDI, gfxPlanet2
+          mdraw  mobStation
+
+;--------- animations
+          dw     animate.rotoid_one_hidden,aniStation1x
+          dw     animate.pal, palStation3
+          mAniMoveCDf mobStation,  #2, mobdef.posz, #50, #40
+          mAniMoveCDf mobStation,  #6, mobdef.posx, #50, #40
+          dw     0
+
+;---------------------------------------------------------------
+
+;.narcis_init:
+s_narcis:
+.init:
+          cnmScreenplayEnable
+          cnmScnXYZ      0,0,0
+          cnmScrCenter   #9d,#2a
+          cnmScnFar      #100
+          cnmScnFade     #40
+          cnmScrTopBot   16,167
+          cnmLightShade  #06
+          cnmLightBright #03,#09
+          cnmLightMode   #00
+          cnmLightPos    #d000,#100
+          rscUnpack      KRscCloudB, res_tab
+          rscUnpack      KRscCloudL, res_tab
+          rscUnpack      KRscCloudR, res_tab
+          callix         rotoid.scrClear, #0500
+          cnmFocal       4
+          ret
+
+;.narcis_erase:
+.erase:
+          dw     makeStars.erase, starCity
+          mdel   mobNarcis2
+          dw     0
+
+;.narcis_draw:
+.draw:
+          dw     makeStars.draw, starCity
+          dw     drawHDI, gfxCloudL
+          dw     drawHDI, gfxCloudR
+          dw     drawHDI, gfxCloudB
+          mdraw  mobNarcis2
+
+;--------- animations
+          dw     animate.pal, palNarcis2l
+          dw     animate.pal, palNarcis2r
+          mAniMoveCD mobNarcis2,  #ffff, mobdef.posz, #ff, #10
+          dw     0
+
+;---------------------------------------------------------------
+; pyramids top view
+s_pyrtop:
+.init:
+          callix         rotoid.scrClear, #0600
+          include        "demo/data/rotoid/pyramid_top.sce.a80"
+          cnmFocal       4
+          ret
+.erase:
+          mdel   mobTiles1
+          mdel   mobTiles2
+          mdel   mobPyrtop
+          dw     0
+
+.draw:
+          mdraw mobTiles1
+          mdraw mobTiles2
+          mdraw mobPyrtop
+
+;--------- animations
+          mAniMoveAcc scene.posz, 0, #40, #0 ,  0, #3,  #001f
+          mAniMoveAcc scene.posx, 0, #40, #10,  0, #18,  #0180
+
+;          mAniMoveCD scene.posz,6,0,#30,#10
+          dw 0
+
+;---------------------------------------------------------------
+
+;.city_init:
+s_city:
+.init:
+          cnmScnXYZ      #fe00,#78,#ffb0
+          cnmScrCenter   #80,#7f
+          cnmScnFar      #00
+          cnmScnFade     #00
+          cnmScrTopBot   32,128
+          cnmLightShade  #05
+          cnmLightBright #00,#07
+          cnmLightMode   #00
+          cnmLightPos    #d000,#100
+;          cnmMobPos     mobCity1, 0, 0, #20
+
+          callix        scrClear,#4700
+          callix        fillRct,.fill1
+          callix        fillRct,.fill2
+          call          scrCopy
+;          call          invDthPattern
+          cnmFocal       3
+          ret
+
+.fill1:    rctf 0,#81,32,2,#ff
+.fill2:    rctf 0,#85,32,1,#aa
+
+;.city_erase:
+.erase:
+          dw    makeStars.erase, starCity
+
+          mdel   mobPyramid1
+          mdel   mobPyramid2
+          mdel   mobPyramid3
+          mdel   mobMoon1
+          mdel   mobMoon2
+
+          dw     0
+
+;.city_draw:
+.draw:
+          dw    makeStars.draw, starCity
+          mdraw  mobMoon1
+          mdraw  mobMoon2
+          mdraw  mobPyramid3
+          mdraw  mobPyramid2
+          mdraw  mobPyramid1
+
+;--- animate
+          mAniMoveCD  scene.posx, 8, 0, #40, #00
+          mAniMoveAcc scene.posx, 0, #08, #40 , 8, #0, -#0200
+
+          mAniMoveCD  scene.far,    #10, 0, #40, 0
+
+          mAniMoveAcc scene.posz, 0, #18, #30, 0, #2,  #001f
+          mAniMoveAcc scene.posz, 0, #04, #48, 2,  0, -#0080
+          dw     0
+
+;          mAniMoveCD scene.posz,  1, 0, #18, #00
+;          mAniMoveCD scene.posz, -1, 0, #18, #38
+;          mAniMoveCD scene.posz,   1, 0, #20, #40
+
+;---------------------------------
+
+s_nostrom:
+.init:
+          include       "demo/data/rotoid/nostromo_scene.sce.a80"
+          rscUnpack     KRscPlanet2, res_tab
+          callix        rotoid.scrClear, #4500
+          ret
+.erase:
+          mdel   mobNostromo1
+          mdel   mobNostromo2
+          dw     0
+.draw:
+          dw     makeStars.draw, starCity
+          dw     drawHDI, gfxPlanet2
+          mdraw  mobNostromo2
+          mdraw  mobNostromo1
+;--------- animations
+          mAniMoveCDf scene.posz,-2,0,#ff,#10
+          dw     0
+
+;---------------------------------
+
+s_calpini:
+.init:
+         callix         rotoid.scrClear, #4300
+         include        "demo/data/rotoid/calpamos.sce.a80"
+         cnmScnXYZ      #ffef,0,#18
+         cnmFocal       3
+         ret
+.erase:
+          dw     makeStars.erase, starCalpamos
+          mdel   mobCalpamos
+          mdel   mobLV426
+          mdel   mobLV223
+;          mdel   mobNostromo1
+;          mdel   mobNostromo2
+          dw     0
+.draw:
+          dw     makeStars.draw, starCalpamos
+          mdraw  mobCalpamos
+          mdraw  mobLV426
+          mdraw  mobLV223
+;          dw     drawHDI, gfxLV223
+;          mdraw  mobNostromo2
+;          mdraw  mobNostromo1
+
+;--------- animations
+;          dw     animate.linkxyz,aniNostromo_lnk
+          mAniMoveCD scene.posz,-1,0,#18,#28+#20
+          mAniMoveCD scene.posx,-1,0,#40,0+#20
+
+;          mAniMoveAcc scene.posx, 0, #48, #20 , 0, -1, -#0040
+          dw     0
+
+;---------------------------
+s_calpams:
+.init:
+         include        "demo/data/rotoid/calpamos.sce.a80"
+;         ld             a,o7 xor #0a
+         ld             a,o5
+         msaveHDIpage   9,56,#10,19,temp3k
+         ret
+
+.erase:
+          mdel   mobNostromo1
+          mdel   mobNostromo2
+          dw     0
+
+.draw:
+;          dw     makeStars.draw, starCalpamos
+          dw     drawHDI, gfxLV223
+          mdraw  mobNostromo2
+          mdraw  mobNostromo1
+
+;--------- animations
+          dw     animate.linkxyz,aniNostromo_lnk
+          mAniMoveCD  mobNostromo1,1,mobdef.posz,#ff,#20
+          dw     0
+
+;---------
+s_pyrplan:
+.init:
+          callix    rotoid.scrClear, #0500
+          cnmFocal  3
+          include   "demo/data/rotoid/pyramid_planet.sce.a80"
+          ret
+.erase:
+          dw     makeStars.erase, starCalpamos
+          mdel   mobSun
+          mdel   mobPlanet
+          mdel   mobPlant2
+          dw     0
+.draw:
+          dw     makeStars.draw, starCalpamos
+          mdraw  mobSun
+          mdraw  mobPlant2
+          mdraw  mobPlanet
+;--------- animations
+;          mAniMoveCD  scene.posz,1,0,#90,#10
+          mAniMoveAcc scene.posz, 0, #40, #0 ,  0, #3,  #001f
+          mAniMoveAcc scene.posz, 0, #10, #30, #3, #0, -#0140
+          mAniMoveAcc scene.posx, 0, #10, #30 , 0, #8,  #0080
+
+          mAniMoveAcc scene.posx, 0, #18, #40 , 6,  0, -#0090
+          mAniMoveAcc scene.posy, 0, #18, #30 , 0,  3,  #0058
+
+;          mAniMoveAcc scene.posy, 0, #10, #40 , 4,  0, -#0180
+          dw     0
+
+;---------
+s_rtype:
+.init:
+          callix         rotoid.scrClear, #0500
+          cnmFocal 3
+            cnmScnXYZ      0,0,0
+            cnmScrCenter   127,64
+            cnmScnFar      #100
+            cnmScnFade     #80
+            cnmScrTopBot   16,167
+            cnmLightShade  #03
+            cnmLightBright #00,#07
+            cnmLightMode   #00
+            cnmLightPos    #d000,#100
+
+          cnmMobPos      mobR10  , #fe00, #00, #80           ; x=fe00
+          cnmMobPos      mobUfo1 , #0180, #00, #70
+          cnmMobPos      mobMoon3, #2000, #400, #200
+         ret
+.erase:
+          dw     makeStars.erase, starCalpamos
+          mdel   mobMoon3
+          mdel   mobR10
+          mdel   mobUfo1
+          mdel   mobMissile
+          dw     0
+
+;.scedit_draw:
+.draw:
+          dw     makeStars.draw, starCalpamos
+          mdraw  mobMoon3
+;          dw     egl.border, #0107
+            mdraw  mobMissile
+;          dw     egl.border, #0100
+
+          mSort  2
+          mdraw  mobR10
+          mdraw  mobUfo1
+
+;--------- animations
+;           dw     egl.border, #0105
+           dw        animate.strobe, objR10flame
+
+           mAniMoveXYZf scene, 0, 13, 0, 0
+           mAniMoveXYZf mobR10, mobdef.posx, 14, 0, 0
+;           dw        animate.moveXYZ, 0, scene, 44,#0,#0                       ; move scene
+;           dw        animate.moveXYZ, mobdef.posx, mobR10, 46, #0000, #0000    ; move object mobStat in position X
+
+           mAniMoveCD  mobR10,-2,mobdef.posz,#30,#70
+           mAniMoveCD  mobR10, 2,mobdef.posz,#30,#ff
+
+           mAniMoveXYZ mobUfo1, mobdef.posx, 42, 0, 0
+;           dw        animate.moveXYZ, mobdef.posx, mobUfo1, 42, #0000, #0000    ; move object mobStat in position X
+
+           mAniMoveCD  mobUfo1,-1,mobdef.posz,#40,#ff
+           dw        animate.linkxyz, aniR10_Ufo1_lnk
+           dw        animate.sin, aniR10_Ufo1_csz
+           dw        animate.sin, aniR10_Ufo1_csy
+
+           mAniMoveCD  objMissile, 28, objdef.rposx, #ff, #20
+           dw        animate.linkxyz, aniR10_Mssl_lnk
+;           dw     egl.border, #0100
+          dw     0
+;---------
+          ENDIF  ; IFDEF d_scrplay
+;---------
+
+          display "Scenes start      :",_sc," len:",$-_sc

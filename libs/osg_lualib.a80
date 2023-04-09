@@ -1,0 +1,27 @@
+        MACRO ad_XY _px,_py
+ad      = (_py and %00000111) * 256 + (_py and %11000000) * 32 + (_py and %00111000) * 4 + (_px>>3)
+        ENDM
+
+        MACRO dw0_XY _px,_py
+        ad_XY _px,_py
+        dw    ad+#4000
+        ENDM
+
+        MACRO dw1_XY _px,_py
+        ad_XY _px,_py
+        dw    ad+#c000
+        ENDM
+
+        MACRO ad_CY _px,_py
+        ad_XY _px<<3,_py
+        ENDM
+
+        MACRO dw0_CY _px,_py
+        ad_XY _px<<3,_py
+        dw    ad+#4000
+        ENDM
+
+        MACRO dw1_CY _px,_py
+        ad_XY _px<<3,_py
+        dw    ad+#c000
+        ENDM

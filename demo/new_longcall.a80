@@ -1,0 +1,65 @@
+longCall:
+        ld      (.sra+1),a         ; save a
+        ld      (.shl+1),hl        ; save hl
+        ld      (.sde+1),de        ; save de
+
+        ld      a,(@page)          ; save source page
+        ld      (.srp+1),a
+
+        pop     hl                 ; get address of data for call (page, pc)
+        ld      a,(hl)             ; new page
+        inc     hl
+        ld      e,(hl)             ; call jump addr
+        inc     hl
+        ld      d,(hl)
+        inc     hl
+        ld      (.sjp+1),de
+        push    hl                 ; return address from user call
+        ld      hl,.lret           ; return address from kern long call
+        push    hl
+        page_a
+;-- call
+.sra:   ld      a,#55
+.shl:   ld      hl,#5555
+.sde:   ld      de,#5555
+.sjp:   jp      #5555
+
+.lret:  push    af
+.srp:   ld      a,#55
+        page_a
+        pop     af
+        ret                        ; return address from user call: pop hl, jp (hl)
+
+
+longcall:
+        ld      (.shl+1),hl
+        ld      (.sde+1),de
+        ld      (.sbc+1),bc
+        ld      (.saa+1),a
+
+        pop     hl                 ;get ptr for arguments
+        ld      e,(hl)             ;jump addr
+        inc     hl
+        ld      d,(hl)             ;
+        inc     hl
+        ld      c,(hl)             ;jump page
+        inc     hl
+        push    hl                 ;ret address
+        ld      (.jmp+1),de
+        ld      a,(@page)
+        push    af
+        ld      hl,.lret
+        push    hl
+        ld      a,c
+        page_a
+.shl:   ld      hl,#5555
+.sde:   ld      de,#5555
+.sbc:   ld      bc,#5555
+.saa:   ld      a,#5555
+.jmp:   jp      #5555
+
+.lret:  ld      (.sra+1),a
+        pop     af
+        page_a
+.sra:   ld      a,#55
+        ret

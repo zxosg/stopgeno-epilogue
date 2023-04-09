@@ -1,0 +1,428 @@
+/*
+rsc of gfx here
+*/
+; TEXT data
+                macro   fzexe par,exe
+                db      KFzxExe, par
+                dw      exe
+                endm
+
+                macro   fzexe16 par1,par2,exe
+                db      KFzxExe16, par1, par2
+                dw      exe
+                endm
+
+                macro   fzfont font
+                db      KFzxFont
+                dw      font
+                endm
+
+                macro   fzmargin posx
+                db      KFzxMargin, posx
+                endm
+
+                macro   fztab tab
+                db      KFzxTab, tab
+                endm
+
+                macro   fzlgap spc
+                db      KFzxLGap, spc
+                endm
+
+
+a:  = #0a
+lm: = #30
+mm: = #70
+
+        OUTPUT "bin/end_titles.bin"
+        PHASE  temp3k
+/*
+fzTitles1:
+        sfzx     ffnt4,.text,8,0
+.text:  db       22,176,8
+*/
+/*
+        fzfont ffnt3
+        fzmargin #8
+
+        fzlgap   4*#10
+        db       " ",a
+        fzexe16  3,KRscT01,unpackHdi
+        fzexe    1,invHDI
+
+        fzlgap   5*#10
+        db       " ",a
+        fzexe16  3,KRscT02,unpackHdi
+        fzexe    1,invHDI
+
+        fzlgap   6*#10
+        db       " ",a
+        fzexe16  2,KRscT03,unpackHdi
+        fzexe    1,invHDI
+
+        fzlgap   5*#10
+        db       " ",a
+        fzexe16  4,KRscT04,unpackHdi
+        fzexe    1,invHDI
+
+;----------
+*/
+        fzfont ffnt3
+        fzlgap   4*#10
+        db       " ",a
+        fzexe16  2,KRscT05,unpackHdi     ; you've been watching
+        fzexe    1,invHDI
+
+        fzlgap   5*#10
+        db       " ",a
+        fzexe16  2,KRscT06,unpackHdi     ; directed
+        fzexe    1,invHDI
+
+        fzlgap   7*#10
+        db       " ",a
+        fzexe16  1,KRscT07,unpackHdi     ; credits
+        fzexe    1,invHDI
+
+        fzlgap   3*#10
+        db       " ",a
+        db       " ",a
+        fzexe16  8,KRscT08,unpackHdi     ;support
+        fzexe    1,invHDI
+
+        fzlgap   3*#10
+        db       a
+        fztab    #28
+        db       "in association with...",a
+        fzexe16  #13,KRscT09,unpackHdi     ;invaders
+
+        fzlgap   8*#08
+        db       "powered by...",a
+        fzexe16  #09,KRscT10,unpackHdi     ;rotoid
+
+        fzlgap   #10
+        fztab    #40
+        db       "No animals were harmed.",a
+        db       a
+        fztab    #5b
+        db       "Save kittens!"
+
+        db  #ff
+        ENT
+        OUTEND
+/*
+        db   "The situation in demomaking", a
+        db   "on the planet Earth", a
+        db   "is no longer sustainable.", a
+        db   a
+        db   "Lucy's ", #22, "Movement", a
+        db   "for Twister & Plasma Programming",#22, a
+        db   "caused extinction of almost", a
+        db   "all kitten species.", a
+        db   a
+        db   "A secret organization", a
+        db   "called SinDiCat", a
+        db   "has gathered the last surviving", a
+        db   "specimens to preserve", a
+        db   "this rare genetic life form.", a
+        db   a
+        db   "The space ark of", a
+        db   "CAT-X Corporation", a
+        db   "is leaving planet Earth.", a
+        db  #ff
+        ENT
+        OUTEND
+*/
+/*
+;--
+        fztab #70-4
+        db  "VOID", a
+        fzfont ffnt4
+        fztab #4a
+        db  "a ZX Spectrum 128k Demo", a
+        db  a, a
+        fzexe16  13,KRscPyramid,unpackHdi          ; ------- image
+        db  a, a, a
+        fzfont ffnt4
+        fzmargin #40
+        db  "Dedicated to my beloved family.", a
+;---
+        fztab #40-12
+        db  "Jarmilka, Zuzanka, Editka and Moniq.", a
+        db  " Thanks for all your patience!", a, a
+        fzexe16  22,KRscCloudR,unpackHdi          ; ------- image
+        fztab #40-4
+        db  "With love to Yana Hollis (+2020)", a
+        fzmargin #30
+        db  a, a, a, a
+        fzfont ffnt5
+        fztab #08
+        db  "CREDITS", a, a
+        fzfont ffnt4
+        db  "Code, story, graphics:"
+        fztab #a0
+        db  "omega", a
+        db  "Musics, graphics, support:"
+        fztab #a0
+        db  "Lamer Pinky", a
+        db  a, a
+        db  a, a
+
+        fzfont ffnt5
+        fztab #08
+        db  "ADDITIONAL CODE"
+        db  a
+        db  a
+
+        fzfont ffnt4
+        db  "mborik - music player and system testing", a
+        db  "Baze/3SC - MUL16", a
+        fzexe16  28,KRscHudGraph,unpackHdi          ; ------- image
+        db  "Busy - MUL8", a
+        db  "Ped7G - Attribute fader optimizations",a
+        db  "John Metcalf - SQRT16", a
+        db  "Einar Saukas - ZX7 and FZX font driver"
+        db  a, a, a, a
+        fzfont ffnt5
+        fztab #08
+        db  "TOOL TEAM", a, a
+        fzfont ffnt4
+        db  "Mark 'SpecEmu' Woodmass", a
+        db  "Mark 'InkSpector' Incley", a
+        fzexe16  28,KRscHudScale2,unpackHdi          ; ------- image
+        db  "Vladimir 'EmuzWin' Kladov", a
+        db  "Spin Emulator Team", a
+        db  "Real Spectrum Team", a
+        db  "Ped7G 'SjASMPlus'", a
+        db  "Jan 'PSPad' Fiala", a
+        db  "Wayne 'ImageJ' Rasband", a
+        db  "Claus 'ZX Modules' Jahn", a
+        db  "Einar 'ZX7' Saukas", a
+        db  "Sergey 'Vortex' Bulba", a
+        db  "Mark 'Regina' Hessling", a
+        db  "V_Soft", a
+;--
+        db  "Jose Luis 'ZXBaremulator' Sanchez", a
+        db  "and others...", a
+        db  a, a, a, a
+        fzfont ffnt5
+        fztab #08
+        db  "SPECIAL THANKS", a
+        fzexe16   -2, KRscSun ,unpackHdi          ; ------- image
+        db  a
+        fzfont ffnt4
+        db  "Jaxon Hollis", a
+        db  "Sir Clive Sinclair", a
+        db  "Ridley Scott", a
+        db  "James Cameron", a
+        db  "Robert Scott Lazar", a
+        fzexe16   20, KRscWormhole ,unpackHdi          ; ------- image
+        db  "Jan Klusal", a
+        db  "NASA", a
+;        fzexe16   19, KRscNostback1 ,unpackHdi          ; ------- image
+        db  "Roger Waters", a
+        db  "Pete Cooke",a
+        db  "and Standa Tomanek", a
+        db  a, a, a, a
+        fzfont ffnt5
+        fztab #08
+        db  "PRODUCTION", a, a
+        fzfont ffnt4
+        db  "Weyland Yutani Corporation",a
+        db  "Syrius Cybernetics",a
+        db  "LV-426 Survival Club",a
+        db  "Umbrella Corporation",a
+        db  "Genex Labs",a
+        db  "Cyberdyne Systems",a
+        db  a
+        fzexe16   0, KRscCloudB ,unpackHdi          ; ------- image
+        db  a, a, a
+        fzfont ffnt5
+        fztab #08
+        db  "GREETINGS TO THE STARS", a, a
+        fzexe16   22, KRscCloudL ,unpackHdi          ; ------- image
+        fzfont ffnt4
+        db  "3SC"
+        fztab #90
+        db  "Aer", a
+        db  "Agenda"
+        fztab #90
+        db  "deMarche", a
+        db  "Exodus"
+        fztab #90
+        db  "Eye-Q", a
+        db  "ESI"
+        fztab #90
+        db  "Gemba Boys",a
+        db  "Hooy-program"
+        fztab #90
+        db  "Insiders", a
+        db  "Kpacku"
+        fztab #90
+        db  "Mayhem", a
+        db  "Phosphene"
+        fztab #90
+        db  "Q-Bone", a
+        db  "Scoopex"
+
+        fztab #90
+        db  "Sibcrew", a
+        db  "SinDiKAT"
+        fztab #90
+        db  "Speecy.pl", a
+        db  "Stardust"
+        fztab #90
+        db  "Techno Lab", a
+        db  "The Super"
+        fztab #90
+        db  "Triebkraft", a
+        db  "Zero Team", a
+        db  a, a
+        fzexe16   28, KRscPlanet2 ,unpackHdi          ; ------- image
+
+        db  a, a
+        db  "Alone Coder"
+        fztab #90
+        db  "Agent X", a
+        db  "Andrea"
+        fztab #90
+        db  "Bell", a
+        db  "Busy"
+        fztab #90
+        db  "Cat-Man", a
+        db  "CVM"
+        fztab #90
+        db  "Cyber", a
+        db  "Dalthon"
+        fztab #90
+        db  "Daniel A. Nagy", a
+        db  "Dennis Grachev"
+        fztab #90
+        db  "Diver", a
+        db  "Dizzy"
+        fztab #90
+        db  "Ellvis", a
+        db  "Error soft"
+        fztab #90
+        db  "FBI", a
+        db  "Flynn"
+        fztab #90
+        db  "g0blinish", a
+        db  "Gasman"
+        fztab #90
+        db  "Goblin", a
+        db  "Hood"
+        fztab #90
+        db  "Ingo Truppel", a
+        db  "Irrlicht project"
+        fztab #90
+        db  "Johny-X", a
+        db  "Karate"
+        fztab #90
+        db  "kowalski", a
+        db  "LMN128"
+        fztab #90
+        db  "Logout", a
+        db  "Matt Gubbins"
+        fztab #90
+        db  "mborik", a
+        db  "MDV"
+        fztab #90
+        db  "Megus", a
+        db  "Mike"
+        fztab #90
+        db  "MISTER BEEP", a
+        db  "MmcM"
+        fztab #90
+        db  "moroz1999", a
+        db  "n1k-o"
+        fztab #90
+        db  "Noby", a
+        db  "Nodeus"
+        fztab #90
+        db  "Noro", a
+        db  "Pheel"
+        fztab #90
+        db  "Poke", a
+;        fzexe16   -6, KRscExplore ,unpackHdi          ; ------- image
+        fzexe16   -4, KRscNostback2 ,unpackHdi          ; ------- image
+
+        db  "Qjeta"
+        fztab #90
+        db  "Quiet", a
+        db  "Random"
+        fztab #90
+        db  "Sanchez", a
+        db  "Seajeff"
+        fztab #90
+        db  "Serzhsoft", a
+        db  "Shiru"
+        fztab #90
+        db  "Shrek", a
+        db  "Simbols"
+        fztab #90
+        db  "TDM", a
+        db  "Tornado"
+        fztab #90
+        db  "Tritol", a
+        db  "Trixs"
+        fztab #90
+        db  "ub880d", a
+        db  "Velesoft"
+        fztab #90
+        db  "Wixet", a
+        db  "X-agon"
+        fztab #90
+        db  "Yerzmyey", a
+        db  "z00m"
+        fztab #90
+        db  "Zilog", a
+        db  a
+        db  "...and You!"
+        db  a
+        fzexe16   20, KRscEarthBW ,unpackHdi          ; ------- image
+
+        db  a, a
+        fzfont ffnt5
+        fztab #08
+        db  "INTERNET", a, a
+        fzfont ffnt4
+        db  "ZXArt.ee", a
+        db  "Demotopia", a
+        db  "Pouet.net", a
+        db  "Sinclair QL Forum", a
+        db  "ZX Spectrum FB groups", a
+        db  "World of Spectrum Forum", a
+        db  a, a, a, a
+        fzfont ffnt5
+        fztab #08
+        db  "LAST WORDS...", a
+        fzfont ffnt4
+        fzmargin #10
+        fzlgap 12
+        db  a
+        db  "You finally have reached the end of our demo.", a
+        db  "We do hope you liked this show. We've spent a good", a
+        db  "amount of time crafting scenes and engine features.",a,a
+        db  "Rotoid Engine is inspired by Pete Cooke's games", a
+        db  "Academy and Tau Ceti. Engine can work with objects",a
+        db  "in 16-bit XYZ space. Objects can be lightsourced,",a
+        db  "animated using trajectories, pallette changes, linked",a
+        db  "with other objects and many more.",a,a
+        db  a, a, a
+        fztab #4a+8
+        db  "Thanks for watching.", a
+        db  a, a
+        fzexe16   10, KRscExplore ,unpackHdi          ; ------- image
+        db  a, a, a, a, a, a, a
+        fztab #50+4
+        db  "Invaders signing off", a
+        fzexe    #f0,waitFrames
+        fzexe    #f0,waitFrames
+        db  a
+        fzexe16   10, KRscInvdr ,unpackHdi              ; ------- image
+        fzexe    #e0,waitFrames
+        db  a
+        db  #ff
+        ENT
+        OUTEND
+*/

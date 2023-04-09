@@ -1,0 +1,95 @@
+; --------------------------------
+;  input file: void2.sce
+;      lenght: 90
+; symbol file: q:\Development\Dev-ZX\_Kernel\main.sym
+; 18 Aug 2019 20:11:40
+	ld  hl,._scene_data
+	ld  de,scene
+	ld  bc,sceneSetup.len
+	ldir
+	ld   de,rotoid.mobLetV
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobLetO
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobLetI
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobLetD
+	ld   c,10
+	ldir
+	jp   ._cont_setup
+._scene_data:
+
+; scene:
+	dw   #0000	;.posx:
+	dw   #0000	;.posy:
+	dw   #0000	;.posz:
+	dw   #0100	;.far:
+	dw   #0080	;.fade:
+
+; light:
+	dw   #D000	;.posx:
+	dw   #0100	;.posz:
+	db  #00	;.bright:
+	db  #08	;.contrs:
+	db  #18	;.angle:
+	db  #00	;.leff:
+	db  #F9	;.reff:
+	db  #00	;.shade:
+	db  #00	;.mode:
+
+; screen:
+	dw   #007F	;.posx:
+	dw   #003F	;.posy:
+	db  #10	;.cltop:
+	db  #A7	;.clbot:
+	db  #04	;.color:
+
+; currObj:
+	dw   #9739	;.ptr:
+	db  #18	;.angle:
+	db  #1F	;.ldata:
+	dw   #007F	;.posx16:
+
+; obj_1:
+;	dw   rotoid.drawMultiObject	;#A4F8	;.drwexe:
+;	dw   rotoid.mobLetV	;#978A	;.mobptr:
+	dw   rotoid.objLetV	;#971E	;.datptr:
+	db  #7E	;.par1:
+	db  #00	;.par2:
+	dw   #0000	;.posx:
+	dw   #0000	;.posy:
+	dw   #0010	;.posz:
+
+; obj_2:
+;	dw   rotoid.drawMultiObject	;#A4F8	;.drwexe:
+;	dw   rotoid.mobLetO	;#9794	;.mobptr:
+	dw   rotoid.objLetO	;#9739	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #0000	;.posx:
+	dw   #0000	;.posy:
+	dw   #0080	;.posz:
+
+; obj_3:
+;	dw   rotoid.drawMultiObject	;#A4F8	;.drwexe:
+;	dw   rotoid.mobLetI	;#979E	;.mobptr:
+	dw   rotoid.objLetI	;#9754	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #0000	;.posx:
+	dw   #0000	;.posy:
+	dw   #0100	;.posz:
+
+; obj_4:
+;	dw   rotoid.drawMultiObject	;#A4F8	;.drwexe:
+;	dw   rotoid.mobLetD	;#97A8	;.mobptr:
+	dw   rotoid.objLetD	;#976F	;.datptr:
+	db  #7F	;.par1:
+	db  #60	;.par2:
+	dw   #0000	;.posx:
+	dw   #0000	;.posy:
+	dw   #0180	;.posz:
+._cont_setup:

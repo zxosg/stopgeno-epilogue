@@ -1,0 +1,41 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "SjASMPlus",
+            "type": "shell",
+            "command": "sjasmplus",
+            "options": {
+                "cwd": "q:\\Development\\Dev-ZX\\_void\\"
+            },
+            "args": [
+                "--nologo",
+                "--lst=main.lst",
+                "--inc=Q:\\Development\\Dev-ZX\\Inc\\",
+                "--sym=main.sym",
+                "main.a80"
+            ],
+            "windows": {
+                "command": "q:\\Development\\Dev-ZX\\bin\\sjasmplus.exe",
+                "options": {
+                    "shell": {
+                        "executable": "cmd.exe",
+                        "args": ["/d", "/c"]
+                    }
+                }
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "isBackground": false,
+            "presentation": {
+                "echo": false,
+                "reveal": "silent",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": "$errmatcher-sjasmplus"
+        }
+    ]
+}

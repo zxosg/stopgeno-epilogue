@@ -1,0 +1,115 @@
+; --------------------------------
+;  input file: calpis2.sce
+;      lenght: 119
+; symbol file: main.sym
+; 27 Apr 2020 22:55:29
+	ld  hl,._scene_data
+	ld  de,.anim
+	ld  bc,#0029
+	ldir
+	ld  de,scene
+	ld  bc,sceneSetup.len
+	ldir
+	ld   de,rotoid.gfxCalpis1
+	ld   c,10
+	ldir
+	ld   de,rotoid.gfxCalpis2
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobStation
+	ld   c,10
+	ldir
+	jp   ._cont_setup
+._scene_data:
+
+; animation
+	dw rotoid.animate.moveCyc	; exec
+	dw rotoid.mobStation+4	; mob object
+	db #AF	; count reset
+	db #00	; delay
+	db #91	; count_current
+	dw #EF69	; accel_current
+	dw #FF77	; accel_temp
+	dw #2ED0	; v0
+
+	dw rotoid.animate.moveCyc	; exec
+	dw rotoid.mobStation+8	; mob object
+	db #AF	; count reset
+	db #00	; delay
+	db #3A	; count_current
+	dw #0512	; accel_current
+	dw #000B	; accel_temp
+	dw #FC58	; v0
+
+	dw rotoid.animate.moveCyc	; exec
+	dw rotoid.mobStation+6	; mob object
+	db #3F	; count reset
+	db #00	; delay
+	db #11	; count_current
+	dw #F879	; accel_current
+	dw #FFD7	; accel_temp
+	dw #0514	; v0
+
+	dw #00	; exit
+
+; scene:
+	dw   #00E4	;.posx:
+	dw   #0000	;.posy:
+	dw   #FFE9	;.posz:
+	dw   #0100	;.far:
+	dw   #005F	;.fade:
+
+; light:
+	dw   #3000	;.posx:
+	dw   #0100	;.posz:
+	db  #00	;.bright:
+	db  #08	;.contrs:
+	db  #27	;.angle:
+	db  #F9	;.leff:
+	db  #00	;.reff:
+	db  #03	;.shade:
+	db  #00	;.mode:
+
+; screen:
+	dw   #007F	;.posx:
+	dw   #0040	;.posy:
+	db  #10	;.cltop:
+	db  #A7	;.clbot:
+	db  #46	;.color:
+
+; currObj:
+	dw   #C70E	;.ptr:
+	db  #27	;.angle:
+	db  #22	;.ldata:
+	dw   #0079	;.posx16:
+
+; obj_1:
+;	dw   rotoid.drawMobHDI	;#A88F	;.drwexe:
+;	dw   rotoid.gfxCalpis1	;#D697	;.mobptr:
+	dw   temp3k	;#5B00	;.datptr:
+	db  #00	;.par1:
+	db  #00	;.par2:
+	dw   #00B0	;.posx:
+	dw   #0000	;.posy:
+	dw   #0400	;.posz:
+
+; obj_2:
+;	dw   rotoid.drawMobHDI	;#A88F	;.drwexe:
+;	dw   rotoid.gfxCalpis2	;#D6A1	;.mobptr:
+	dw  temp3k+820 	;#5E34	;.datptr:
+	db  #00	;.par1:
+	db  #00	;.par2:
+	dw   #00B8	;.posx:
+	dw   #0050	;.posy:
+	dw   #0400	;.posz:
+
+; obj_3:
+;	dw   rotoid.drawMultiObject	;#9B53	;.drwexe:
+;	dw   rotoid.mobStation	;#C735	;.mobptr:
+	dw   rotoid.objStation	;#C6C3	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #FEBB	;.posx:
+	dw   #FFB3	;.posy:
+	dw   #FFE6	;.posz:
+._cont_setup:

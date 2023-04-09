@@ -1,0 +1,163 @@
+        MODULE  egl
+; ----- draw horizontal line (and or xor)
+
+line_h:
+        call    c,.init
+;-----
+        ld      a,(ix+lineh.hght)
+        and     a
+        ret     z
+        dec     (ix+lineh.hght)
+
+        ld      a,(@page)                ; save current page
+        ex      af,af
+
+        ld       a,(ix+lineh.page)
+        and      #7f                     ; unmask vram bit (#40 or #c0)
+        page_am
+        ld_hl_x ix,lineh.vram
+        ld      e,(ix+lineh.val)
+        ld      b,(ix+lineh.wdth)
+        ld      a,(ix+lineh.aox)
+        ld      (.daxmd),a
+        ld      d,l
+.daxlp:   ld      a,(hl)
+.daxmd:   db      #55                    ; nop / and / or / xor
+          ld      (hl),a
+          inc     l
+          djnz    .daxlp
+
+        ex      af,af
+        page_am                          ; restore page
+
+        ld      l,d
+        ld      a,(ix+lineh.dir)
+        cp      KLineDirUp
+        jr      z,.up
+        cp      KLineDirDown
+        jr      z,.dwn
+        cp      KLineAttrUp
+        ld      bc,-32
+        jr      z,.daxat
+        ld      bc,32
+.daxat: add     hl,bc
+        ld_x_hl ix,lineh.vram
+        ret
+
+.dwn:   call  vid
+        ld_x_hl ix,lineh.vram
+        ret
+
+.up:    call     PixUppAdr
+        ld_x_hl  ix,lineh.vram
+        ret
+
+.init:  ld_bc_x  ix,lineh.atxy
+        bit      1,(ix+lineh.dir)
+        call     z,PixCY2Adr
+        bit      1,(ix+lineh.dir)
+        call     nz,AtrXY2Adr
+        ld       a,(ix+lineh.page)
+        and      #80                     ; keep vram page bit (indicates #40 or #c0)
+        or       h                       ; or with vram addr
+        ld       (ix+lineh.vram),l
+        ld       (ix+lineh.vram+1),a
+        ld       a,(ix+lineh.heig)
+        ld       (ix+lineh.hght),a
+        ret
+
+; ----- draw vertical line (and or xor)
+
+line_v: call    c,.init
+;-----
+        ld       a,(ix+linev.wdth)
+        and      a
+        ret      z
+        dec      (ix+linev.wdth)
+        ld       a,(@page)
+        ex       af,af
+        ld       a,(ix+linev.page)
+        and      #7f                     ; unmask vram bit (#40 or #c0)
+        page_am
+        ld_hl_x ix,linev.vram
+        ld      e,(ix+linev.val)
+        ld      b,(ix+linev.hght)
+        ld      a,(ix+linev.aox)
+        ld      (.daxmd),a
+
+.daxlp:   ld      a,(hl)
+.daxmd:   db      #55                    ; nop / and / or / xor
+          ld      (hl),a
+          bit     1,(ix+linev.dir)       ; test attr move
+          jp      z,.pixls
+          ld      a,l
+          add     a,32
+          ld      l,a
+          jp      nc,.vlop
+          inc     h
+          jp      .vlop
+
+.pixls:   inc     h
+          ld      a,h
+          and     7
+          jp      nz,.vlop
+          ld      a,l
+          add     a,32
+          ld      l,a
+          jr      c,.vlop
+          ld      a,h
+          sub     8
+          ld      h,a
+.vlop:    djnz    .daxlp
+        ex      af,af
+        page_am
+        ld      a,(ix+linev.dir)
+        cp      KLineDirLeft
+        jr      z,.left
+        cp      KLineDirRight
+        jr      z,.right
+        cp      KLineAttrLeft
+        jr      z,.aleft
+        cp      KLineAttrRight
+        ret     nz
+        inc     (ix+linev.vram)
+        ret
+.aleft: dec     (ix+linev.vram)
+        ret
+
+.left:  rlc     (ix+linev.val)
+        ret     nc
+        dec     (ix+linev.vram)
+        ret
+
+.right: rrc     (ix+linev.val)
+        ret     nc
+        inc     (ix+linev.vram)
+        ret
+
+.init:  ld_bc_x  ix,linev.atxy
+        bit      1,(ix+linev.dir)
+        jr       z,.pixinit
+        call     AtrXY2Adr
+        jr       .cnt
+
+.pixinit:
+        call     PixXY2Adr
+        cpl
+        add      a,8
+        add      a,a
+        add      a,a
+        add      a,a
+        add      a,$c6
+        ld       (.set+3),a
+        ld       (ix+linev.val),0
+.set:   set      0,(ix+linev.val)
+.cnt:   ld       a,(ix+linev.page)
+        and      #80                     ; keep vram page bit (indicates #40 or #c0)
+        or       h                       ; or with vram addr
+        ld       (ix+linev.vram),l
+        ld       (ix+linev.vram+1),a
+        ld       a,(ix+linev.widt)
+        ld       (ix+linev.wdth),a
+        ret
+        ENDMODULE

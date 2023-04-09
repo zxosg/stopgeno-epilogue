@@ -1,0 +1,194 @@
+; rotoid objects (27.04.2019)
+;------------------------------------------------------------------------------
+
+;                 xoff, yoff, y0, y1, par1, par2, leff, reff
+ufo1:
+          box     100, 70 ,0                       ; bounding box of the object
+          arc     32,  0,  0,  32, 64, 1, 12, 5
+.a:       lin     16,  32, 32, #ffc0, 7, 7
+          db      #ff                              ; end mark
+
+void:     include  "demo/data/void.bin.a80"
+oVoid:    objmac  void,0,0,0,0
+          dw      0
+mobVoid:  mobmac  oVoid,#7f,#20,0,0,0
+
+build1:   include  "demo/data/build1_py.bin.a80"
+build2:   include  "demo/data/build2_py.bin.a80"
+build3:   include  "demo/data/build3_py.bin.a80"
+build4:   include  "demo/data/build4_py.bin.a80"
+ray:      include  "demo/data/lightray2_py.bin.a80"
+ray3:     include  "demo/data/lightray3_py.bin.a80"
+pyramid:  include  "demo/data/pyramid_py.bin.a80"
+
+opyrami1: objmac  pyramid , 0, 0, 0,   0
+          objmac  ray    , 0, 0, 0, -32
+          dw      0
+opyrami2: objmac  pyramid , 0, 0, 0,   0
+          objmac  ray     , 0, 0, 0, -32
+          dw      0
+opyrami3: objmac  pyramid , 0, 0, 0,   0
+          objmac  ray     , 0, 0, 0, -32
+          dw      0
+
+oMoon1:   objmac  moon, 0,  0, 0,  0
+          dw      0
+oMoon2:   objmac  moon, 0,  0, 0,  0
+          dw      0
+
+mobPyra1: mobmac  opyrami1, 127, 24,    0,  0, #00
+mobPyra2: mobmac  opyrami2, 127, 24,  256,  0, #40
+mobPyra3: mobmac  opyrami3, 127, 24, -512,  0, #80
+mobMoon1: mobmac    oMoon1, #80+#40, #80+#38,  #350, -#400, #b0
+mobMoon2: mobmac    oMoon2, #80+#20, #80+#10, -#200, -#200, #100
+
+ocity1:
+          objmac  build4,0,0,-512,-32
+;          objmac  build4,0,0,-256,0
+          objmac  build4,0,0, 256,-48
+          dw      0
+
+ocity2:
+;          objmac  build1,0,0,-127,0
+          objmac  build2,0,0, 127,-16
+          objmac  build3,0,0, 384,32
+          dw      0
+
+ocity3:
+          objmac  build3,0,0,-384,-40
+          objmac  build2,0,0,   0,-40
+;          objmac  build4,0,0, 384,-40
+          dw      0
+
+mobCity1: mobmac  ocity1,127,24,0,0,#60
+mobCity2: mobmac  ocity2,127,24,0,0,#40
+mobCity3: mobmac  ocity3,127,24,0,0,#20
+
+rocket:
+.body:    include "demo/data/rckt1_py.bin.a80"
+.wings:   include "demo/data/rckt2_py.bin.a80"
+.flame:   arc     -70, 0, 2, 48, 80, 0, #17, #10
+          db      #ff
+
+ufo2:     include "demo/data/ufo1_py.bin.a80"
+
+ball:     box     100,196,0
+          arc     0,  0, 1, 60, 60, 1, #13, #13
+          arc     0, 60, 1, 60, 60, 0, #13, #13
+          arc     0, 40, 1, 20, 20, 1, #1f, #1f
+          arc     0, 60, 1, 20, 20, 0, #1f, #1f
+
+          db      #ff
+
+moon:     include "demo/data/bigplanet_py.bin.a80"
+
+station1: include "demo/data/station1a_py.bin.a80"
+station2: include "demo/data/station2_py.bin.a80"
+
+ball2:    box     64,64,0
+          arc     0,  0, 1, 32, 32, 1, 7, 0
+          arc     0,  0, 1, 32, 32, 0, 7, 0
+          db      #ff
+
+diamb:    include "demo/data/station3_py.bin.a80"
+diamf:    include "demo/data/station3_py.bin.a80"
+
+train1:   incbin "demo/data/train3_py.bin"
+train2:   incbin "demo/data/train3_py.bin"
+
+lsxy:     objdef  0                                ; current object variables (modified by setObject)
+
+/*
+          ;       object, scale, angle, posx, posy ;          removed: cltop, clbot
+oBall:    objdef  ball, 128,  0,  64,  48, 16, 128
+oUfo1:    objdef  ufo1,  24, 15, 128,  32, 16, 128
+oUfo2:    objdef  ufo2,  32,  0,   0,  48, 16, 128
+oMoon:    objdef  moon, 128,  0,   0,  64, 16, 128
+*/
+
+oRocket:
+          objmac  rocket.wings,0, 0, 0, 80
+          objmac  rocket.body, 0, 0, 0, 0
+.flame:   anmmac  rocket.flame,0, #80+32, 0, 109, 0
+          dw      0
+
+oRocke2:
+          objmac  rocket.wings,0, 0, 0, 80
+          objmac  rocket.body, 0, 0, 0, 0
+.flame:   anmmac  rocket.flame,0, #80+32, 0, 109, 0
+          dw      0
+oRocke3:
+          objmac  rocket.wings,0, 0, 0, 80
+          objmac  rocket.body, 0, 0, 0, 0
+.flame:   anmmac  rocket.flame,0, #80+32, 0, 109, 0
+          dw      0
+
+oBalls:   objmac  ball, 0,  #80+08, -64,  0
+          objmac  ball, 0,  #80+32,  64,  0
+          objmac  ball, 0,  #80+24,   0, 32
+          dw      0                              ; end of mob block
+
+oUfos:    objmac  ufo1, 0,  0, -64,   0
+          objmac  ufo2, 0,  0, 127,  64
+          dw      0
+
+oMoon:    objmac  moon, 128,  0, 0,  0
+          dw      0
+
+oBall:    anmmac  ball, 0,  0,  0, 0, 0+4       ;bit 3 = type of light object, bit 0,1 - light mode
+          dw      0
+
+oBall2:   anmmac  ball, 0,  0,  0, 0, 3+4       ;bit 3 = type of light object, bit 0,1 - light mode
+          dw      0
+
+
+oTrain1:  objmac  train1, 0, 0,  0, 0
+          objmac  train2, 0, 0, 130, 0
+          dw      0
+
+oTrain2:  objmac  train1, 0, 0,   0, 0
+          objmac  train2, 0, 0, -130, 0
+          dw      0
+
+oStation:
+.back:    anmmac    diamb,   0,  0,  64,  130, 1
+          objmac  station1,  0,  0,   0,   0
+          objmac  station2,  0,  0,   0,  60
+.front:   anmmac    diamf,   0,  0, -64,  130, 1
+          dw      0
+
+oEdit:    objmac  workspace, 0, 0, 0, 0
+          dw      0
+
+/*
+oOmega:   objmac  xomg, 0, 0, 0, 0
+          dw      0
+*/
+
+; MOBjects         objptr, scale, angle, posx, posy, posz
+mobBall1: mobmac   oBalls,  64, 48,     0,  0,  90
+mobBall2: mobmac    oUfos,  96, 16,  128,  -64,  70
+mobMoon:  mobmac    oMoon, 255, 48,  250,  100, #300
+mobStat:  mobmac oStation, 127, 40,     0,-160, 0
+mobRckt:  mobmac  oRocket, 127, 48,   -80, 350, 30
+mobRck2:  mobmac  oRocke2, 127, 48,   -80, 250, 100
+mobRck3:  mobmac  oRocke3, 127, 48,  -480, 420, 150
+mobEdit:  mobmac    oEdit, 127, 48,     0,   0, 32
+;mobOmg:   mobmac   oOmega, 127, 40,     0, -60, 30
+mobTrn1:  mobmac  oTrain1, 127, 40,    900,-95, #40
+mobTrn2:  mobmac  oTrain2, 127, 40,  -500, 100, #60
+mobLight: mobmac   oBall , 32,  0 ,  0, 0, 0
+mobLigh2: mobmac   oBall2, #40, 0 ,  0, 0, 0
+;-----
+/*
+gfxBase:  mobgfx   gfx.base, KGfxPut , 14, 87, 17, 100-37, 50
+gfxCity:  mobgfx   gfx.city, KGfxPut , 25, 64,  7,  72, 200
+*/
+gfxBase:  mobgfx   temp2k, KGfxPut , 14, 87, 17, 100-37, 50
+gfxCity:  mobgfx   temp2k, KGfxPut , 25, 64,  3,  72, 200
+gfxCity3: mobgfx   temp3k, KGfxPut  , 32, 68,  0,  72, 200
+
+starRckt: dstar    #2162, #faf2, 32, 0, 128
+starDoom: dstar    #0162, #2332, 32, 0, 128
+starDemo: dstar    #0142, #00f2, 32, 40, 96
+starSpac: dstar    #0002, #d101, 32, 32, 176

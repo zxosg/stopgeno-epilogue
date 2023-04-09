@@ -1,0 +1,637 @@
+; pentagon: Na Pentagonu 1024SL staci pouzit port #EFF7 a nastavit bit 2, pak se vypne rozirene strankovani a funguje jako 128KB i s moznosti zakazat strankovani.
+
+; osg 25.06.2018
+; kernel macros
+
+;--- page definitions
+        IFDEF sinclair
+              define o0 #50
+              define o1 #51
+              define o2 #52
+              define o3 #53
+              define o4 #54
+              define o5 #55
+              define o6 #56
+              define o7 #57
+        ELSE
+              define o0 #10
+              define o1 #11
+              define o2 #12
+              define o3 #13
+              define o4 #14
+              define o5 #15
+              define o6 #16
+              define o7 #17
+        ENDIF
+
+        MACRO   callix  rpc,rix
+         ld      ix,rix
+         call    rpc
+        ENDM
+
+        MACRO   callhl  rpc,rhl
+         ld      hl,rhl
+         call    rpc
+        ENDM
+
+        MACRO   callbc  rpc,rbc
+         ld      bc,rbc
+         call    rpc
+        ENDM
+
+        MACRO   xcall  rpc,rix
+         call   rpc
+         dw     rix
+        ENDM      
+
+        MACRO   xget
+         pop    hl
+         pop    ix
+         inc    hl
+         inc    hl
+         push   hl
+        ENDM
+
+        MACRO   ld_hl_x index,str
+           ld   l,(index+str)
+           ld   h,(index+str+1)
+        ENDM
+
+        MACRO   ld_de_x index,str
+           ld   e,(index+str)
+           ld   d,(index+str+1)
+        ENDM
+
+        MACRO   ld_bc_x index,str
+           ld   c,(index+str)
+           ld   b,(index+str+1)
+        ENDM
+
+        MACRO   ld_x_bc index,str
+           ld   (index+str),c
+           ld   (index+str+1),b
+        ENDM
+
+        MACRO   ld_x_de index,str
+           ld   (index+str),e
+           ld   (index+str+1),d
+        ENDM
+
+        MACRO   ld_x_hl index,str
+           ld   (index+str),l
+           ld   (index+str+1),h
+        ENDM
+
+        MACRO   ld_ix_x index,str
+           ld   a,(index+str),xl,a
+           ld   a,(index+str+1),xh,a
+        ENDM        
+
+        MACRO   ld_iy_x index,str
+           ld   a,(index+str),yl,a
+           ld   a,(index+str+1),yh,a
+        ENDM
+
+        MACRO   ld_x_ix index,str
+           ld   a,xl,(index+str),a
+           ld   a,xh,(index+str+1),a
+        ENDM
+
+        MACRO   ld_x_iy index,str
+           ld   a,yl,(index+str),a
+           ld   a,yh,(index+str+1),a
+        ENDM
+
+        MACRO   mmucpy from,to,len,pagesrc,pagedst
+          ld      hl,from
+          ld      de,to
+          ld      bc,len
+          ld      xl,pagesrc
+          ld      xh,pagedst
+          call    mmu.copy
+        ENDM
+
+        MACRO   HoldVramAfterInterrupt
+          ld    a,#f7
+          ld    (@imask),a
+          xor   a
+          ld    (@ivram),a
+        ENDM
+
+        MACRO   ReturnVramAfterInterrupt
+          ld    a,#ff
+          ld    (@imask),a
+          xor   a
+          ld    (@ivram),a
+        ENDM
+
+        MACRO   WaitF _fram                       ; input is number of frames
+          call  wait4FrameInStack
+          dw    _fram
+        ENDM
+
+/*
+        MACRO   WaitF _fram                       ; input is number of PAL frames @ 25Hz (Audacity)
+          ld    bc,_fram*2                        ; thus x2 to get 50Hz
+          call  wait4Frame
+        ENDM
+*/
+        MACRO   outp value1,value2
+          IFDEF   debug
+           ld     a,value1
+          ELSE
+           ld     a,value2
+          ENDIF
+          out    (#fe),a
+        ENDM
+
+        MACRO   border _b
+          ld a,_b : out (#fe),a
+        ENDM
+
+        MACRO debug_border _value
+        ifdef debug
+          push af
+          ld  a,_value
+          out (#fe),a
+          pop af
+        endif
+        ENDM
+
+        MACRO debug_border_init
+        ifdef debug
+          push af
+          xor  a
+          ld   (dbg.border),a
+          out  (#fe),a
+          pop  af
+        endif
+        ENDM
+
+        MACRO debug_border_inc
+        ifdef debug
+          push af
+          ld   a,(dbg.border)
+          out  (#fe),a
+          inc  a
+          and  7
+          ld   (dbg.border),a
+          pop  af
+        endif
+        ENDM
+
+        MACRO debug_border_a
+        ifdef debug
+          out  (#fe),a
+        endif
+        ENDM
+
+        MACRO debug_border_halt _val
+        ifdef debug
+          push bc,af
+1         ld   a,_val : out  (#fe),a
+          xor  a      : out  (#fe),a
+          ld   bc,#7ffe
+          in   a,(c)
+          rra
+          jr   c,1B
+          pop  af,bc
+        endif
+        ENDM
+
+        MACRO debug_pause _value
+        ifdef debug
+          push   hl,bc
+          ld     bc,_value
+2         ld     l,0
+1         dec    l
+          jr     nz,1B
+          cpi
+          jp     pe,2B
+          pop    bc,hl
+        endif
+        ENDM
+
+; long call to different page. Returns to source page and keeps regs and flags
+        MACRO   callpg _address, _page
+          call    longCall
+          db      _page
+          dw      _address
+        ENDM
+
+        MACRO   page_am_old
+          IFDEF outfd
+              out    (#fd),a
+          ELSE
+              push    bc
+              ld      bc,#7ffd
+              out     (c),a
+              pop     bc
+          ENDIF
+        ENDM
+
+        MACRO   page_am
+         out    (#fd),a
+        ENDM
+
+        MACRO   page_a
+         ld      (@page),a
+         page_am
+        ENDM
+
+        MACRO   page_c             ; call kern_exe page routine
+         call   @apage
+        ENDM
+
+        MACRO   page_ar pg
+        ld      a,pg
+        page_a
+        ENDM
+        
+        MACRO   setpage pg
+         page_ar pg
+        ENDM
+        
+        MACRO   push_all
+          push  af,bc,de,hl,ix,iy 
+          exx 
+          ex    af,af
+          push  af,bc,de,hl
+        ENDM
+        
+        MACRO   pop_all
+          pop    hl,de,bc,af
+          exx
+          ex     af,af
+          pop    iy,ix,hl,de,bc,af
+        ENDM
+
+;--------------------------------------        
+        STRUCT  SExeRun
+cmd:    db      KExeRun
+pc:     dw      0
+ix:     dw      0
+        ENDS
+
+; executes task, sets IX as parametter
+        MACRO  ExeRun regpc,regix
+        db     KExeRun                ; executor command number
+        dw     regpc,regix
+        ENDM
+
+        MACRO  ExeZ80start _rix
+          db     KExeRun                ; executor command number
+          dw     $+4,_rix
+
+          LUA ALLPASS
+           zstart=sj.current_address
+          ENDLUA
+        ENDM
+
+        MACRO  ExeZ80end
+          pop    hl,iy
+
+            LUA ALLPASS
+             zlen=sj.current_address-zstart
+             sj.insert_define("zlen", zlen)
+            ENDLUA
+
+          ld     bc,8+zlen
+          add    iy,bc
+          jp     execmd.lloop
+          undefine zlen
+        ENDM
+
+;--------------------------------------
+; executes task with periodicity
+; prio is 16bit value. It is periodically accumulated. Once high byte is greater than 0
+; task is executed and accumulated value is zeroed.
+        STRUCT  SExePeriodic
+cmd:    db      KExePeriodic
+pc:     dw      0
+ix:     dw      0
+iprio:  dw      0
+cprio:  dw      0
+        ENDS
+
+        MACRO   ExePeriodic _pc,_ix,_prio
+        db      KExePeriodic
+        dw      _pc,_ix,_prio,0
+        ENDM
+
+;--------------------------------------
+; execute task as QL scheduler.
+; task priority equals to percentage of total sum of all tasks priorities
+        STRUCT  SExeScheduler
+cmd:    db      KExeScheduler
+pc:     dw      0
+ix:     dw      0
+iprio:  db      0
+cprio:  db      0
+        ENDS
+
+        MACRO   ExeScheduler _pc,_ix,_prio
+        db      KExeScheduler
+        dw      _pc,_ix
+        db      _prio
+        db      _prio
+        ENDM
+
+;--------------------------------------
+; executes task with looping, call pc1, call pc2, sets IX as parametter
+        STRUCT  SExeLoop
+cmd:    db      KExeLoop        ; executor command number
+pulse:  db      0               ; len od pulse (number of frames to call routine)
+gap:    db      0               ; len of gap (number of frames to wait before loop)
+state:  db      0               ; current state
+ctr:    db      0               ; current counter
+pcg:    dw      0               ; address of called routine when gap
+pcp:    dw      0               ; address of called routine when pulse
+ix:     dw      0               ; pointer to data
+        ENDS
+
+        MACRO   ExeLoop regpcp,regpcg,regix,pulse,gap,state
+        db      KExeLoop
+        db      pulse,gap,state,1
+        dw      regpcg,regpcp,regix
+        ENDM
+
+; alternate
+        MACRO   ExeSwapPC regpcp,regpcg,regix,pulse,gap,state
+          ExeLoop regpcp,regpcg,regix,pulse,gap,state
+        ENDM
+
+        MACRO   ExeSwapPC2 regpcp,regpcg,regix,pulse,gap,state,counter          ; same as above, yet current_counter has custom value
+        db      KExeLoop
+        db      pulse,gap,state,counter
+        dw      regpcg,regpcp,regix
+        ENDM
+
+
+;--------------------------------------
+; executes task with looping, call pc, sets IX1 and IX2 as parametter
+        STRUCT  SExeSwap
+cmd:    db      KExeSwap        ; executor command number
+pulse:  db      0               ; len od pulse (number of frames to call routine)
+gap:    db      0               ; len of gap (number of frames to wait before loop)
+state:  db      0               ; current state
+ctr:    db      0               ; current counter
+pc:     dw      0               ; address of called routine
+ixp:    dw      0               ; pointer to data when pulse
+ixg:    dw      0               ; pointer to data when gap
+        ENDS
+
+        MACRO   ExeSwap regpc,regixp,regixg,pulse,gap,state
+        db      KExeSwap
+        db      pulse,gap,state,1
+        dw      regpc,regixp,regixg
+        ENDM
+
+; alternate
+        MACRO   ExeSwapIX regpc,regixp,regixg,pulse,gap,state
+          ExeSwap regpc,regixp,regixg,pulse,gap,state
+        ENDM
+
+        MACRO   ExeSwapIX2 regpc,regixp,regixg,pulse,gap,state,counter          ; same as above, yet current_counter has custom value
+        db      KExeSwap
+        db      pulse,gap,state,counter
+        dw      regpc,regixp,regixg
+        ENDM
+
+
+;--------------------------------------
+; executes task with delay of #wait frames
+        STRUCT  SExeWait
+cmd:    db      KExeWait
+wait:   dw      0
+ctr:    dw      0               ; counter of frames (copied from wait at init)
+pc:     dw      0
+ix:     dw      0
+        ENDS
+
+        MACRO   ExeWait regpc,regix,wait
+        db      KExeWait
+        dw      wait,0,regpc,regix
+        ENDM
+
+;--------------------------------------
+; executes task AT (only once), Unitl (up to frame), After (from frame and on). Time is specified time from (frames)
+        STRUCT  SExeFrame
+cmd:    db      0
+fram:   dw      0
+pc:     dw      0
+ix:     dw      0
+        ENDS
+
+; execute at axact frame count
+        MACRO   ExeAt regpc,regix,fram
+        db      KExeAt
+        dw      fram,regpc,regix
+        ENDM
+
+; execute until some frame count occurs        
+        MACRO   ExeUntil regpc,regix,fram
+        db      KExeUntil
+        dw      fram,regpc,regix
+        ENDM
+
+; execute after some frame count occurs
+        MACRO   ExeAfter regpc,regix,fram
+        db      KExeAfter
+        dw      fram,regpc,regix
+        ENDM
+                        
+; does nothing, just waits defined number of frames
+        MACRO  Wait     len
+        FrameStart      len,0
+        ExeRun          dummy,0
+        FrameEnd
+        ENDM
+
+; call user routine in main loop, interrupt just waits defined number of frames
+/*
+        MACRO  MCall     len,addr
+         FrameStart      len,addr
+         ExeRun          dummy,0
+         FrameEnd
+        ENDM
+*/
+        MACRO  MCall     addr
+         FrameStart      #ffff,addr         ; set length of frame
+         ExeRun          mcall.ret, 1       ; when routine at ADDR is completed, 1 overwrites #ffff and sequence ends.
+         FrameEnd
+        ENDM
+        
+; new timeslot with duration in frames 
+        MACRO  FrameStart len,addr
+         dw len, addr
+        ENDM
+        
+        MACRO  Frame len,addr
+          FrameStart len,addr
+        ENDM
+
+; end of slot, executor reloads table from position "task_start" 
+        MACRO  FrameEnd
+         db     0                ; executor command number
+        ENDM
+
+        MACRO  EndF
+          FrameEnd
+        ENDM
+
+; this is end-construct that enables to exit from frame loop once desired frame count occurs
+        MACRO  EndAtFrame _exitframe
+          ExeAt mcall.saveFrames, 1, _exitframe
+          FrameEnd
+        ENDM
+        
+; end command: loop from start
+        MACRO  Restart
+        dw     0,2
+        ENDM
+
+; end command: do nothing
+        MACRO  Idle
+        dw     0,1
+        ENDM
+        
+; do nothing, wait until specific frame
+        MACRO WaitUntil  frms
+        FrameStart       $ffff,0
+         ExeAfter        execmd.service, .jumpHere,frms
+        EndF
+.jumpHere:
+        ENDM
+        
+; config
+        MACRO Config
+        FrameStart  1,0
+        db          KExeConfig
+        ENDM
+                 
+        MACRO PatchWord addr,data
+        db    1
+        dw    addr
+        dw    data
+        ENDM
+        
+        MACRO PatchByte addr,data
+        db    2
+        dw    addr
+        db    data
+        ENDM
+        
+        MACRO IntList   addr
+        PatchWord imrut.exl+1 ,addr
+        ENDM
+        
+        MACRO AsyncCall addr
+        PatchWord mainloop.int+1 ,addr
+        ENDM
+        
+        MACRO MainCall  addr
+        PatchWord mainloop.rew+1, addr
+        ENDM 
+        
+        MACRO HaltEnable
+        PatchByte mainloop.hlt,_halt
+        ENDM
+        
+        MACRO HaltDisable
+        PatchByte mainloop.hlt,_nop
+        ENDM
+        
+        MACRO AsyncEnable
+        PatchByte mainloop.mod ,_anda
+        PatchByte imrut.mod+1  ,_anda
+        ENDM
+        
+        MACRO AsyncDisable
+        PatchByte mainloop.mod ,_scf
+        PatchByte imrut.mod+1  ,_scf
+        ENDM
+        
+        MACRO InitEnable
+        PatchByte ExeFrameInit, _scf
+        ENDM
+        
+        MACRO InitDisable
+        PatchByte ExeFrameInit, _anda
+        ENDM
+
+        MACRO EndC                   ; kern end config
+        db    0
+        ENDM
+
+;------------------------------------
+
+        MACRO mEnd                   ; exeptr end mark
+        dw    0
+        ENDM
+
+        MACRO    haltCount _wait
+        dw       #07,_wait
+        ENDM
+
+        MACRO    retUntil _wait
+        dw       #01,_wait
+        ENDM
+
+        MACRO    retFrom _wait
+        dw       #08,_wait
+        ENDM
+
+        MACRO    gotoUntil _label, _time
+          dw     #04, _label
+          db     _time
+        ENDM
+; exelst
+        MACRO    gotoFrom  _label, _time
+          dw     #05, _label
+          db     _time
+        ENDM
+
+        MACRO    gotoWhile  _label, _time
+         gotoFrom _label, _time
+        ENDM
+
+; exelst
+        MACRO    runTimed _exe, _ixptr, _tfrom, _duration
+        dw       #03, _exe, _ixptr
+        db       _tfrom, _duration
+        ENDM
+
+        MACRO    runTimedCD _exe, _ixptr, _duration, _tfrom
+        dw       #03, _exe, _ixptr
+        db       _tfrom, _duration
+        ENDM
+
+; exelst
+        MACRO    runAtFrame _exe, _frame
+        dw       #06,_exe,_frame
+        ENDM
+
+; exelst
+        MACRO    goto _label
+        dw       #02,_label
+        ENDM
+
+; exelst
+        MACRO    retUntilFrame _frame
+        dw       #09, _frame
+        ENDM
+
+; exelst
+        MACRO    run _exe, _ixptr
+        dw       _exe, _ixptr
+        ENDM
+
+
+; Frame-EndF construct
+        MACRO FrameAt _frame, _len, _addr
+        FrameStart #ffff,_addr
+         ExeAt     mcall.ret, 1, _frame
+        FrameEnd
+        FrameStart _len, _addr
+        ENDM

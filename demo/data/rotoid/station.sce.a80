@@ -1,0 +1,69 @@
+; --------------------------------
+;  input file: station.sce
+;      lenght: 62
+; symbol file: main.sym
+; 22 Apr 2020 07:11:01
+	ld  hl,._scene_data
+	ld  de,scene
+	ld  bc,sceneSetup.len
+	ldir
+	ld   de,rotoid.gfxPlanet2
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobStation
+	ld   c,10
+	ldir
+	jp   ._cont_setup
+._scene_data:
+
+; scene:
+	dw   #0100	;.posx:
+	dw   #0000	;.posy:
+	dw   #FF76	;.posz:
+	dw   #00D0	;.far:
+	dw   #0060	;.fade:
+
+; light:
+	dw   #3000	;.posx:
+	dw   #0100	;.posz:
+	db  #00	;.bright:
+	db  #08	;.contrs:
+	db  #27	;.angle:
+	db  #F9	;.leff:
+	db  #00	;.reff:
+	db  #03	;.shade:
+	db  #00	;.mode:
+
+; screen:
+	dw   #007F	;.posx:
+	dw   #0040	;.posy:
+	db  #10	;.cltop:
+	db  #A7	;.clbot:
+	db  #46	;.color:
+
+; currObj:
+	dw   #C70E	;.ptr:
+	db  #27	;.angle:
+	db  #27	;.ldata:
+	dw   #FFB2	;.posx16:
+
+; obj_1:
+;	dw   rotoid.drawMobHDI	;#A87F	;.drwexe:
+;	dw   rotoid.gfxPlanet2	;#D68D	;.mobptr:
+	dw   temp3k	;#5B00	;.datptr:
+	db  #00	;.par1:
+	db  #00	;.par2:
+	dw   #0090	;.posx:
+	dw   #0000	;.posy:
+	dw   #0400	;.posz:
+
+; obj_2:
+;	dw   rotoid.drawMultiObject	;#9B43	;.drwexe:
+;	dw   rotoid.mobStation	;#C735	;.mobptr:
+	dw   rotoid.objStation	;#C6C3	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #035D	;.posx:
+	dw   #FF80	;.posy:
+	dw   #0046	;.posz:
+._cont_setup:

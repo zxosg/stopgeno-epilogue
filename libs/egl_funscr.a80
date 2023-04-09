@@ -1,0 +1,87 @@
+         MODULE egl
+
+copyRight:
+         ld        hl,#4000
+         ld        de,#c000
+copyRightHLDE:
+         ld        xl,192
+         ld        (.f),a
+
+2        ld        b,32
+         push      hl,de
+         and       a
+1        ld        c,(hl)
+         rr        c
+         ex        af,af
+         ld        a,(de)
+.f:      or        c
+         ld        (de),a
+         ex        af,af
+         inc       hl
+         inc       de
+         djnz      1B
+         pop       de,hl
+         call      vid
+         call      vidd
+         dec       xl
+         jr        nz,2B
+         ret
+
+copyLeft:
+         ld        hl,#401f
+         ld        de,#c01f
+copyLeftHLDE:
+         ld        xl,192
+         ld        (.f),a
+
+2        ld        b,32
+         push      hl,de
+         and       a
+1        ld        c,(hl)
+         rl        c
+         ex        af,af
+         ld        a,(de)
+.f:      or        c
+         ld        (de),a
+         ex        af,af
+         dec       hl
+         dec       de
+         djnz      1B
+         pop       de,hl
+         call      vid
+         call      vidd
+         dec       xl
+         jr        nz,2B
+         ret
+
+copyFunc:
+         ld        hl,#4000
+         ld        de,#c000
+.HLDE:
+         ld        c,192
+.HLDEC:
+         ld        (.f),a
+2        ld        b,32
+         push      hl,de
+1        ld        a,(de)
+.f:      and       (hl)
+         ld        (de),a
+         inc       hl
+         inc       de
+         djnz      1B
+         pop       de,hl
+         call      vid
+         call      vidd
+         ld        a,h
+         and       #7f
+         cp        #58
+         ret       nc
+         ld        a,d
+         and       #7f
+         cp        #58
+         ret       nc
+1        dec       c
+         jp        nz,2B
+         ret
+
+         ENDMODULE

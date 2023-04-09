@@ -1,0 +1,455 @@
+; rotoid scenes (14.03.2023)
+;-------------------------------------------------------------------------------
+          DEFINE KSceneNoCut   #80                        ; cut-scene/switch to next scene won't delete objects on screen (rotoid.setScene)
+          DEFINE KSceneFadeOut #40                        ; fade-out effect
+          DEFINE KSceneFadeIn  #30                        ; fade-in effect to scene (pre-render + fade in)
+          DEFINE KSceneRender  #10                        ; Pre-render scene
+
+          STRUCT scn
+ptrs:     dw     0
+lens:     dw     0
+option:   db     0
+          ENDS
+
+          STRUCT scnptr
+init:     dw     0             ; init for each scene
+pini:     dw     0             ; post init (0 if not used)
+erase:    dw     0
+draw:     dw     0
+anim:     dw     0
+alen:     dw     0
+          ENDS
+_sc:
+scrplay:  dw      0                                       ; pointer to screenplay table
+.scedit:  scn      scenes.scedit ,#ffff, #00
+.sgedit:  scn      scenes.edit   ,#ffff, #00
+
+          IFDEF   d_scrplay
+.part1:
+          scn      scenes.launchpad ,#0c8 , KSceneFadeIn + KSceneFadeOut
+          scn      scenes.disengage ,#04a , KSceneFadeIn + KSceneFadeOut
+          scn      scenes.escape    ,#0b0 , KSceneFadeIn + KSceneFadeOut
+          scn      scenes.endtitles ,#004 , 0
+.part2:
+          scn      scenes.cheese    ,#098 , KSceneFadeIn + KSceneFadeOut
+          scn      scenes.crash     ,#100 , KSceneFadeIn + KSceneFadeOut
+          scn      scenes.blank     ,#068 , KSceneFadeOut
+          mEnd
+;            exeptr init   , exeptr erase   , exeptr draw    , exeptr anim
+          ENDIF
+scenes:
+;---editors---
+.edit:       scnptr s_edit.init       , 0, s_edit.erase       , s_edit.draw        , s_edit.anim       , s_edit.alen      ;--- segment editor
+;.scedit:     scnptr s_scedit.init , 0, s_scedit.erase , s_scedit.draw , s_scedit.anim, s_scedit.alen    ;--- scene editor
+.scedit:     scnptr s_crash.init     , 0, s_crash.erase     , s_crash.draw      , s_crash.anim     , s_crash.alen
+;--- movie----
+.launchpad:  scnptr s_launchpad.init  , 0, s_launchpad.erase  , s_launchpad.draw   , s_launchpad.anim  , s_launchpad.alen
+.disengage:  scnptr s_disengage.init  , 0, s_disengage.erase  , s_disengage.draw   , s_disengage.anim  , s_disengage.alen
+.escape:     scnptr s_escape.init     , 0, s_escape.erase     , s_escape.draw      , s_escape.anim     , s_escape.alen
+.endtitles:  scnptr s_endtitles.init  , 0, s_endtitles.erase  , s_endtitles.draw   , s_endtitles.anim  , s_endtitles.alen
+.cheese:     scnptr s_cheese.init     , 0, s_cheese.erase     , s_cheese.draw      , s_cheese.anim     , s_cheese.alen
+.crash0:     scnptr s_crash0.init     , 0, s_crash0.erase     , s_crash0.draw      , s_crash0.anim     , s_crash0.alen
+.crash:      scnptr s_crash.init      , 0, s_crash.erase      , s_crash.draw       , s_crash.anim      , s_crash.alen
+.blank:      scnptr s_blank.init      , 0, s_blank.erase      , s_blank.draw       , s_blank.anim      , s_blank.alen
+;-------------
+
+.anim:    dw   dummy, 0
+          mEnd
+.alen:    = $-.anim
+
+; generic fadein
+ffadeInColAdd:
+          ld      (ffadeIn.col),a
+          ld      a,b
+          ld      (ffadeIn.add),a
+ffadeIn:
+          call    egl.backFlash
+          dw      0
+          dw      #10
+          db      #0f
+.col:     db      5
+.add:     db      8
+          db      8
+          ret
+
+;###############################################################################
+s_edit:
+.init:
+          cnmScnXYZ     0,0,0
+          cnmScrCenter  127+56,0
+          cnmScnFar     #200
+          cnmScnFade    #100
+          cnmScrTopBot  0,191
+;          cnmMobPos     mobEdit, 0,  0, 50
+          cnmLightShade  #05
+          cnmFocal       3
+          ret
+.erase:
+          mdel mobEdit
+          mEnd
+.draw:
+          mdraw mobEdit
+          mEnd
+.anim:
+          mEnd
+.alen: =  $-.anim
+;###############################################################################
+
+s_scedit:
+.init:
+          cnmScreenplayDisable
+          cnmFocal 3
+          cnmScnXYZ      #0,#0,#000
+          cnmScrCenter   #80,#60
+          cnmScnFar      #300
+          cnmScnFade     #120
+          cnmScrTopBot   0,191
+          cnmLightShade  #03
+          cnmLightBright #00,#07
+          cnmLightMode   #00
+          cnmLightPos    #a800,#100
+          rscUnpack      KRscMouse, res_tab
+          rscUnpack      KRscPlanet, res_tab
+          callix         rotoid.scrClear, #4600
+          cnmMobPos      mobCat1, #140, #ffd0, #00
+          ret
+
+.erase:
+;          run    makeStars.erase, starCalpamos
+          gdel   gfxPlanet
+          gdel   gfxMouse
+          mdel   mobCat1
+          mdel   mobCat2
+          mdel   mobCat3
+          mEnd
+.draw:
+          run    makeStars.draw, starCalpamos
+          gotoFrom  .s1, #04
+          gdraw  gfxPlanet
+.s1:
+          gdraw  gfxMouse
+          mSort  3
+          mdraw  mobCat3
+          mdraw  mobCat2
+          mdraw  mobCat1
+          mEnd
+.anim:
+          retUntil #40
+          mAniMoveXYZf  mobCat1, mobdef.posx, -1, 0, 1
+          mAniMoveCD    gfxMouse, mobdef.posy, 8, 5, 20
+          mEnd
+.alen: =  $-.anim
+
+s_cheese_2:
+.init:
+          cnmScreenplayDisable
+          cnmFocal 3
+          cnmScnXYZ      #0,#0,#000
+          cnmScrCenter   #80,#60
+          cnmScnFar      #300
+          cnmScnFade     #120
+          cnmScrTopBot   0,191
+          cnmLightShade  #03
+          cnmLightBright #00,#07
+          cnmLightMode   #00
+          cnmLightPos    #a800,#100
+          cnmMobPos      mobCatx, #140, #ffd0, #30
+          callix         rotoid.scrClear, #4600
+          ret
+
+.erase:   mdel           mobCatx
+          mEnd
+.draw:    mdraw          mobCatx
+          mEnd
+.anim:    mAniMoveXYZ   mobCatx, mobdef.posx, -1, 0, 0
+          mEnd
+.alen: =  $-.anim
+;###############################################################################
+s_cheese:
+.init:
+          debug_border_halt 2
+          ReturnVramAfterInterrupt
+          cnmFocal 3
+          cnmScnXYZ      #0,#0,#000
+          cnmScrCenter   #80,#60
+          cnmScnFar      #300
+          cnmScnFade     #120
+          cnmScrTopBot   0,191
+          cnmLightShade  #03
+          cnmLightBright #00,#07
+          cnmLightMode   #00
+          cnmLightPos    #a800,#100
+          rscUnpack      KRscMouse, res_tab
+          rscUnpack      KRscPlanet, res_tab
+          callix         rotoid.scrClear, #4600
+          cnmMobPos      mobCat1, #120, #ffd0, #00                              ;z=0
+          WaitF          syncid_060
+.pini:    ret
+
+.erase:
+;          run    makeStars.erase, starCalpamos
+;          gdel   gfxPlanet
+          gdel   gfxMouse
+          mdel   mobCat1
+          mdel   mobCat2
+          mdel   mobCat3
+          mEnd
+.draw:
+          run    makeStars.draw, starCalpamos
+          gotoFrom  .s1, #04
+          gdraw  gfxPlanet
+.s1:
+          gdraw  gfxMouse
+          mSort  3
+          mdraw  mobCat3
+          mdraw  mobCat2
+          mdraw  mobCat1
+          mEnd
+.anim:
+          retUntil #40
+;          mAniMoveXYZf  mobCat1, mobdef.posx, -1, 0, 0
+          mAniMoveXYZf  mobCat1, mobdef.posx, -1, 0, 2
+          mAniMoveCD    gfxMouse, mobdef.posy, 8, 5, 20
+          mEnd
+.alen: =  $-.anim
+
+;###############################################################################
+s_endtitles:
+.init:
+;          WaitF  syncid_1D6+8               ; latest start of titles
+;          call   @rtd_tit:  dw  txb05
+          callpg  @screen.endtitles, o0
+          ret
+.pini:
+          ret
+.anim:
+.draw:
+.erase:
+          mEnd
+.alen:    = $-.anim
+;###############################################################################
+
+s_escape:
+.init:
+          cnmFocal 3
+          cnmScnXYZ      #fe40,#1e,#fe00
+          cnmScrCenter   #62,#67
+          cnmScnFar      #300
+          cnmScnFade     #120
+          cnmScrTopBot   16,167
+          cnmLightShade  #03
+          cnmLightBright #00,#07
+          cnmLightMode   #00
+          cnmLightPos    #a000,#100
+          rscUnpack      KRscEarth1, res_tab
+          callix         makeStars.draw, starEscape
+;          call           @mmu.cpscr57
+          WaitF          syncid_058
+          ret
+.erase:
+;          run    makeStars.erase, starCalpamos
+          mdel   mobCat1
+          mdel   mobCat2
+          mdel   mobCat3
+          mEnd
+.draw:
+          run    makeStars.draw, starEscape
+          mSort  3
+          mdraw  mobCat3
+          mdraw  mobCat2
+          mdraw  mobCat1
+          mEnd
+.anim:
+;          retUntil #20
+          mAniMoveXYZf  mobCat1, mobdef.posx, 0, 0, -1
+          mEnd
+.alen: =  $-.anim
+
+;###############################################################################
+
+s_launchpad:
+.init:
+          callpg         screen.blueprint, o0
+          cnmFocal 3
+          cnmScnXYZ      0,0,0
+          cnmScrCenter   #7f,#40
+          cnmScnFar      #300
+          cnmScnFade     #120
+          cnmScrTopBot   0,191
+          cnmLightShade  #03
+          cnmLightBright #00,#07
+          cnmLightMode   #00
+          cnmLightPos    #a000,#100
+
+          callix     rotoid.scrClear, #00
+          rscUnpack  KRscLaunchpad1, res_tab
+          WaitF      syncid_048
+          ld         hl,exe_launchpad          ;add kernel process to blink with led
+          call       execmd.init
+          ret
+.erase:
+          mdel   mobRocket
+          mEnd
+.draw:
+          mdraw  mobRocket
+          mEnd
+.anim:
+          mAniMoveXYZf  mobRocket, mobdef.posx, 0, -1, 0
+          mEnd
+.alen: =  $-.anim
+
+;###############################################################################
+
+s_disengage:
+.init:
+          cnmFocal 3
+          cnmScnXYZ      0,-#070,0
+          cnmScrCenter   #7f,#40
+          cnmScnFar      #300
+          cnmScnFade     #120
+          cnmScrTopBot   #10,#a0
+          cnmLightShade  #03
+          cnmLightBright #00,#07
+          cnmLightMode   #00
+          cnmLightPos    #a000,#100
+          callix         rotoid.scrClear, #4700
+          WaitF          syncid_050
+          ret
+.erase:
+;          run    makeStars.erase, starCalpamos
+          mdel   mobHead
+          mdel   mobBody
+          mEnd
+.draw:
+          run    makeStars.draw, starCalpamos
+          mdraw  mobHead
+          mdraw  mobBody
+          mEnd
+.anim:
+;          retUntil #20
+;          mAniMoveXYZf  mobHead, mobdef.posx, 0, -1, 0
+          gotoFrom .anim_disengage, #30
+;          mAniMoveXYZ scene, 0, 0, #f0, 0
+;          mAniMoveXYZ mobBody, mobdef.posx, 0, #ef, 0
+;          mAniMoveXYZ mobHead, mobdef.posx, 0, #ef, 0
+
+;          mAniMoveXYZ scene, 0, 0, #f0, 0
+          mAniMoveXYZ mobBody, mobdef.posx, 0, -2, 0
+          mAniMoveXYZ mobHead, mobdef.posx, 0, -2, 0
+
+          mEnd
+
+.anim_disengage:
+;          mAniMoveXYZ scene, 0, 0, #f0, 0
+;          mAniMoveXYZ mobBody, mobdef.posx, 0, #f3, 0
+;          mAniMoveXYZ mobHead, mobdef.posx, 0, #ef, 0
+
+;          mAniMoveXYZ scene, 0, 0, #f0, 0
+          mAniMoveXYZ mobBody, mobdef.posx, 0,  1, 0
+          mAniMoveXYZ mobHead, mobdef.posx, 0, -3, 0
+
+          mEnd
+.alen: =  $-.anim
+
+;###############################################################################
+s_crash0:
+.init:
+          WaitF          syncid_068
+          callix    rotoid.scrClear, #00
+          rscUnpack KRscEnding, res_tab
+          ret
+.anim:
+.draw:
+.erase:
+          mEnd
+.alen:    = $-.anim
+
+;###############################################################################
+s_crash:
+.init:
+          WaitF          syncid_068
+          callix    rotoid.scrClear, #00
+          rscUnpack KRscEnding, res_tab
+          rscUnpack KRscAstrocat, res_tab
+          rscLoad   KRscTruck, res_tab
+          callix    invMobHDI, gfxTruck
+          callix    rotMobHDI, gfxTruck
+          cnmFocal       1
+          cnmScnXYZ      #0,#0,#00
+          cnmScrCenter   #80,#40
+          cnmScrTopBot   0,191
+          callix    rotoid.drawMobHDI, gfxTruck
+          ret
+
+.erase:   gdel      gfxAstrocat
+          mEnd
+
+.draw:    gdraw     gfxAstrocat
+          gdraw     gfxTruck
+          mEnd
+
+.anim:    mAniMoveCD  gfxAstrocat, mobdef.posx, 8, 12, 140
+          mAniMoveCD  gfxTruck   , mobdef.posx,-1, 140, 1
+          mEnd
+.alen:    = $-.anim
+
+;###############################################################################
+s_blank:
+.init:    cnmScreenplayDisable
+          ld        bc,#200
+1         halt
+          dec       c
+          jr        nz,1B
+          djnz      1B
+          call      egl.atrFadeFull
+          ret
+.anim:
+.erase:
+.draw:    mEnd
+.alen:    = $-.anim
+
+/*
+;###############################################################################
+s_narcis:
+.init:
+          cnmScreenplayEnable
+          cnmScnXYZ      -#40,0,0
+          cnmScrCenter   #9d,#2a
+          cnmScnFar      #100
+          cnmScnFade     #40
+          cnmScrTopBot   16,167
+          cnmLightShade  #06
+          cnmLightBright #03,#09
+          cnmLightMode   #00
+          cnmLightPos    #d000,#100
+          rscUnpack      KRscCloudB, res_tab
+          rscUnpack      KRscCloudL, res_tab
+          rscUnpack      KRscCloudR, res_tab
+          callix         rotoid.scrClear, #0500
+          cnmFocal       4
+          ret
+
+;.narcis_erase:
+.erase:
+          dw     makeStars.erase, starCity
+          mdel   mobNarcis2
+          dw     0
+
+;.narcis_draw:
+.draw:
+          dw     makeStars.draw, starCity
+          gdraw  gfxCloudL
+          gdraw  gfxCloudR
+          gdraw  gfxCloudB
+          mdraw  mobNarcis2
+
+;--------- animations
+          dw     animate.pal, palNarcis2l
+          dw     animate.pal, palNarcis2r
+          mAniMoveCD mobNarcis2, mobdef.posz, #ffff, #ff, #10
+          dw     0
+
+
+;###############################################################################
+*/
+          display "Scenes start      :",_sc," len:",$-_sc, " end:",$

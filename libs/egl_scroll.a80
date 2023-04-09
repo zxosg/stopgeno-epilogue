@@ -1,0 +1,59 @@
+        MODULE egl
+scroll: call    c,.init
+.run:   ld      a,(ix+scrl.wdth)
+        ld      (.wdth+1),a
+        ld      a,(ix+scrl.pos)
+        dec     a
+        and     7
+        ld      (ix+scrl.pos),a
+        jr      nz,.sll
+
+.txt:   ld_hl_x ix,scrl.txt
+        ld      a,(hl)
+        and     a
+        jr      nz,.ini
+        ld_hl_x ix,scrl.text
+        ld      a,(hl)
+.ini:   inc     hl
+        ld_x_hl ix,scrl.txt
+        sub     #20
+        add     a,a
+        ld      l,a
+        ld      h,0
+        add     hl,hl
+        add     hl,hl
+        ld      de,(ix+scrl.font)  ; not tested! 30.06.2019
+        add     hl,de
+.cbff1: ld      de,#5555
+
+     .8 ldi                             ; copy character to cbuf
+
+.sll:   ld_hl_x ix,scrl.addr
+.cbff2: ld      de,#5555
+
+        ld      c,8                      ;height
+.loop:  ld      a,l
+.wdth:  ld      b,8                      ;width
+        ex      de,hl
+        rlc     (hl)
+        ex      de,hl
+.lop:   rl      (hl)
+        dec     l
+        djnz    .lop
+        ld      l,a
+        inc     h
+        inc     de
+        dec     c
+        jp      nz,.loop
+        ret
+
+.init:  ld_hl_x ix,scrl.text
+        ld_x_hl ix,scrl.txt
+        ld      (ix+scrl.pos),1
+        ld      hl,ix
+        ld      de,scrl.cbuf
+        add     hl,de
+        ld      (.cbff1+1),hl
+        ld      (.cbff2+1),hl
+        ret
+        ENDMODULE

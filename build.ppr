@@ -1,0 +1,35 @@
+[Config]
+Compilator.SaveAll=0
+Compilator.Capture=0
+Compilator.CompileOnBackground=0
+Compilator.ProgSaveAll=0
+Compilator.ProgRunSelection=0
+Compilator.LogType=0
+Compilator.LogEncoding=0
+DefaultCP=0
+LogtoEnd=1
+DontOpen=0
+AbsolutePath=0
+FileFormat=0
+ProjectFilesOnly=0
+HTServer=localhost
+[Project tree]
+release
+	+Folder
+		cat_build.a80
+[Open project files]
+0=build.a80
+1=cat_build.a80
+2=build_zx.a80
+[Selected Project Files]
+Main=cat_build.a80
+Selected=cat_build.a80
+[build.a80]
+TopLine=1
+Caret=34,2
+[cat_build.a80]
+TopLine=15
+Caret=34,30
+[build_zx.a80]
+TopLine=89
+Caret=1,1

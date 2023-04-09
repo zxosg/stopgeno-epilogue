@@ -1,0 +1,844 @@
+; Interrupt Scheduler, based on Eklhaft 2
+; Code : Omega (compiler: SJASM+ v 1.3)
+; Start: 25.06.2018
+
+imtab = #bb
+
+;start:
+        di
+        push   iy
+        exx
+        push   hl
+        exx
+        ld     (basicsp+1),sp
+        ld     sp,stackStart
+
+        ld     a,imtab
+        ld     i,a
+        im 2
+;---    test memory speed
+        ld     hl,testMachine.interrupt
+        ld     (imvct),hl
+        call   testMachine
+
+;---    set temporary dummy int handler
+        ld     hl,testMachine.dummyint
+        ld     (imvct),hl
+
+        ld     hl,exp.main
+        call   exeptr                          ; run main exec list prior enabling interrupt
+
+;---    set kernel int handler
+        ld     hl,imrut
+        ld     (imvct),hl
+
+;        ld      hl,exe.demo                   ; table of executor script
+;        call    execmd.init
+
+        ei
+        halt
+        jp     mainloop                        ; run main loop
+
+; return to OS --------
+os:
+        di
+basicsp:
+        ld     sp,#5555
+1       jr     1F
+/*
+        exx
+        pop    hl
+        exx
+        pop    iy
+        xor    a
+        ld     i,a
+        im     1
+        ei
+        ret
+*/
+poke:   ld     hl,(ix+0)
+        ld     a,(ix+2)
+        ld     (hl),a
+        ret
+
+pokew:  ld     hl,(ix+0)
+        ld     a,(ix+2)
+        ld     (hl),a
+        inc    hl
+        ld     a,(ix+3)
+        ld     (hl),a
+        ret
+
+;----------------------------------------------------------------------------------------
+; execute list of calls; pointer to jump table in HL, end of table = 0
+exelst:
+        push    hl
+.loop:  pop     hl
+        ld      e,(hl)
+        inc     hl
+        ld      d,(hl)
+        ld      a,e
+        or      d
+        ret     z               ; end of table
+        inc     hl
+        push    hl
+        ex      de,hl
+        ld      de,.loop
+        push    de
+        jp      (hl)
+
+;----------------------------------------------------------------------------------------
+; execute list of calls with IX as pointer; pointer to jump table in HL, end of table = 0
+exeptr:
+        push    hl
+.loop:  pop     hl
+.next:  ld      e,(hl)               ; de=exe or d=0, e=command
+        inc     hl
+        ld      d,(hl)
+        inc     hl
+        ld      c,(hl)               ; bc=parametters ->IX or other params for commands
+        inc     hl
+        ld      b,(hl)
+        inc     hl
+        ld      a,d
+        and     a
+        jr      nz,.exe              ;d > 0 then exe
+        ld      a,e
+        and     a
+        ret     z                    ;#00 - end of list
+        dec     a
+        jr      z,.retuntil          ;#01 - ret/end until -(delay) (acts as end of list for number of iterations - delay)
+        dec     a
+        jr      z,.goto              ;#02 - goto (change pointer of execution list)
+        dec     a
+        jr      z,.timed             ;#03 - run timed (execute FROM specific pass with COUNT of passes)
+        dec     a
+        jr      z,.until             ;#04 - goto until (execute until pass number is reached)
+        dec     a
+        jr      z,.from              ;#05 - goto from (execute from specific pass number)
+        dec     a
+        jp      z,.exeframe          ;#06 - exe at frame (execute code (without ix) once specific frame count is reached)
+        dec     a
+        jp      z,.halt              ;#07 - halt IX number of frames
+        dec     a
+        jr      z,.retfrom           ;#08 - ret from specific count
+        dec     a
+        jp      z,.retuntilframe     ;#09 - ret until specific frame occurs
+
+1       ld      a,r                  ; error
+        out     (#fe),a
+        jr      1B
+
+.exe:   ld      xl,c
+        ld      xh,b
+        push    hl
+        ex      de,hl
+        ld      de,.loop
+        push    de
+        jp      (hl)
+
+.retuntil:
+        ld      a,b                  ; delayed return
+        or      c
+        jr      z,.next
+        dec     bc
+        dec     hl
+        ld      (hl),b
+        dec     hl
+        ld      (hl),c
+        ret
+
+.retfrom:
+        ld      a,b                  ; delayed return
+        or      c
+        ret     z
+        dec     bc
+        dec     hl
+        ld      (hl),b
+        dec     hl
+        ld      (hl),c
+        inc     hl
+        inc     hl
+        jr      .next
+
+.goto:  ld      h,b                  ; change exe pointer
+        ld      l,c
+        jr      .next
+
+;       exe, ix, from_time, duration
+.timed: ld      e,c                  ; de=exe
+        ld      d,b
+        ld      c,(hl)
+        inc     hl
+        ld      b,(hl)
+        inc     hl
+        ld      xl,c                 ; ix=params
+        ld      xh,b
+        ld      a,(hl)               ; delayed start
+        and     a
+        jr      z,1F
+        dec     (hl)
+        inc     hl
+2       inc     hl
+        jp      .next
+1       inc     hl
+        ld      a,(hl)               ; duration
+        and     a
+        jr      z,2B
+        dec     (hl)
+        inc     hl
+        push    hl
+        ex      de,hl
+        ld      de,.loop
+        push    de
+        jp      (hl)
+
+.until: ld      a,(hl)               ; change exe pointer until timeout
+        inc     hl
+        and     a
+        jr      z,.next
+        dec     hl
+        dec     (hl)
+        ld      h,b
+        ld      l,c
+        jp      .next
+
+.from:  ld      a,(hl)               ; change exe pointer from timeout
+        and     a
+        jr      z,1F
+        dec     (hl)
+        inc     hl
+        jp      .next
+1       ld      h,b
+        ld      l,c
+        jp      .next
+
+.exeframe:
+        ld      e,(hl)               ; jump to routine specified in BC once frames>= DE
+        inc     hl                   ; this jump happens just once! No IX params are passed
+        ld      d,(hl)
+        inc     hl
+        inc     d
+        jp      z,.next              ; in case d=255, then skip this jump. 255 is mark that jump has happened
+        dec     d
+        push    hl
+        ld      hl,(frames)
+        sbc     hl,de
+        jp      m,.loop
+        pop     hl
+        push    hl
+        dec     hl
+        ld      (hl),#ff             ; marker to skip next jumps (#ffxx ~ 21mins)
+        ld      hl,.loop
+        push    hl
+        ld      l,c
+        ld      h,b
+        jp      (hl)
+
+.halt:  ex      de,hl
+1       halt
+        cpi
+        jp      pe,1B
+        ex      de,hl
+        jp      .next
+
+.retuntilframe:
+        ld      de,(frames)
+        ex      de,hl
+        sbc     hl,bc
+        ex      de,hl
+        jp      nc,.next
+        ret
+
+;-------- include support and kernel routines
+;--- libs
+        include "libs/mmu.a80"          ; mmu (intelligent LDIR, xl source page, xh destination page)
+        include "libs/vramlib.a80"      ; various vram calculation routines. see src
+;        include "libs/bzdiv1608.a80"    ; HL = HL / C; A = remainder
+        include "libs/makesin.a80"      ; mksnt: a: amplitude, c: offset, hl: adr
+;        include "libs/makeshp.a80"      ; mkshp: a: amplitude, c: offset, hl: adr
+
+lowmem: equ     $
+        display "end of lowmem:",lowmem
+
+; ------------------------------------------        
+; ----- main tables, interrupt handler -----
+; ------------------------------------------
+
+        ORG    imtab*#100+#ff
+        display "interrupt:",$
+imvct:  dw     imrut
+
+imrut:  di
+        ld     (.spp+1),sp
+        ld     sp,stackInt
+        push_all
+        ld      a,(page)
+;        ld      (.rpg+1),a
+        push    af
+        ld      hl,(frames)
+        inc     hl
+        ld      (frames),hl
+        ld      a,(fps)
+        inc     a
+        ld      (fps),a
+        call    execmd                  ; executor for commands (requires execmd.init)
+.mod:   ld      a,_scf                  ; intelligent halt / toggler
+        ld      (mainloop.mod),a        ; set int flag
+.exl:   ld      hl,exl.blank
+        call    exelst                  ; executor for list
+        pop     af
+.msk:   and     %11110111
+.ivr:   or      #00                     ; override videoram 8 or 0 - resulting vram after im2
+        ld      (page),a
+        page_am
+        pop_all
+.spp:   ld     sp,#5555
+        ei
+        ret  
+
+ivram: = imrut.ivr+1                  ; hold vram after imrut #0x | keep as it was #00
+imask: = imrut.msk+1                  ;                       #f7                  #ff
+
+;----------------------------------------------------------------------------------------
+mainloop:
+;-- section executed every interrupt
+.mod:   scf                                ; scf / anda - Async calls mandatory
+        jp      c,.skip                    ;
+        ld      a,(.mod)                   ; mandatory
+        xor     _scf xor _anda             ;
+        ld      (.mod),a                   ;
+
+.int:   call    dummy                      ; config: modify call to execute every interrupt (AsyncCall)
+
+;-- section executed in the remaining time
+.skip:                                     ; (intelligent halt)  
+;        debug_border_inc
+;        debug_border    0
+;-- user routines are called here see MCall or mcall (e.g. unpacking, effect data preparation...)
+.tgl:   and     a
+;        ld      a,_anda                    ; mandatory
+;        ld      (.tgl),a                   ;
+.rew:   call    c,dummy                    ; config: call to support routines defined after by FrameStart
+        ld      a,_anda                    ; mandatory
+        ld      (.tgl),a                   ;
+;--
+.hlt:   nop                                ; config: halt/nop
+        ld      a,1
+        ld      (fps),a                    ; clear fps counter
+        jp      mainloop                   ; mandatory
+;---------------------------
+
+; set call routine for main loop execution. Triggers CY to run in the next iteration loop
+; typically used for unpackers, screen background draw, data preparation...
+mcall:
+       ld       (mainloop.rew+1),ix
+       ld       a,_scf
+       ld       (mainloop.tgl),a
+       ret
+; this routine is called by ExeRun every frame. Once execution of slow task in the main loop is finished
+; whole slot is set to duration defined in IX (typically 1 = next frame will finish the exe frame).
+.ret:
+       ld       a,(mainloop.tgl)
+       cp       _scf
+       ret      z
+.saveFrames:
+       ld       (ExeFrames),ix
+       ret
+
+outix:
+       ld       a,xl
+       page_am
+       ret
+
+;----------------------------------------------------------------------------------------
+; executor for interrupt scheduler.
+; init:   execmd.init
+;----------------------------------------------------------------------------------------
+execmd:
+        ld      a,_anda                    ; clear CY
+        ld      (ExeFrameStarted),a
+.ef:    ld      hl,$5555                   ;ExeFrames:          counter of frames
+.ttab:  ld      iy,$5555                   ;ExeTabInProgress:   current position of executor table within frame
+        dec     hl
+        ld      a,l
+        or      h
+        jr      nz,.cc1
+.next:    ld      a,_scf                   ; skip current FramStart to next item
+          ld      (ExeFrameStarted),a      ; flags that first frame of FrameStart has passed (required for initialization of tasks)
+.cc2:     ld      iy,$5555
+.cc4:     ld      hl,(iy+0)                ; load number of frames
+          ld      de,(iy+2)                ; load jump address for main loop
+       .4 inc     iy
+
+          ld      a,d
+          and     a
+          jr      nz,3F                    ; d<>0, de=mainloop exe, hl=frames
+
+; if D (high mainloop.exe)=0 then it's command in E
+          ld      a,e                      ; cmd=0 ignore main loop, assumes HL=no.of frames (e.g. MCall or Frame #nnn,0)
+          and     a                        ; (ignore mainloop.exe, save and_a to mainloop tgl
+          jr      z,2F
+
+          dec     a                        ; cmd=1 Idle
+          jr      nz,.erst
+            ld      a,_scf                 ; scf=stop HALTing in .idle loop
+            ld      (.idleFlag),a
+            ret
+
+.erst:    ld      iy,$5555                 ; restart address
+          dec     a                        ; cmd=2 restart
+          jr      z,.cc4                   ; loop from init
+
+3         ld      a,_scf
+          ld      (mainloop.rew+1),de      ; save mainloop.exe only if d>0
+          jr      1F
+2         ld      a,_anda
+1         ld      (mainloop.tgl),a
+          ld      (ExeTabInProgress),iy
+
+.cc1:   ld      (ExeFrames),hl
+.lloop: ld      a,(iy+0)                   ; read command
+        and     a
+        jr      nz,.cc3
+          inc     iy
+          ld      (ExeTabNextFrame),iy
+          ret
+
+.cc3:   dec     a                       ;1
+        jr      z,.ExeRun
+        dec     a                       ;2
+        jr      z,.ExeLoop
+        dec     a                       ;3
+        jp      z,.ExeWait
+        dec     a                       ;4
+        jp      z,.ExeSwap
+        dec     a                       ;5
+        jp      z,.ExeAt
+        dec     a                       ;6
+        jp      z,.ExeUntil
+        dec     a                       ;7
+        jp      z,.ExeAfter
+        dec     a                       ;8
+        jp      z,.ExeConfig
+        dec     a                       ;9
+        jp      z,.ExePeriodic
+;        debug_border_inc
+        ret
+
+; ------ exeloop
+.ExeLoop:
+        ld      a,(iy+SExeLoop.state)
+        and     a
+        jr      z,.cc6pulse
+        dec     (iy+SExeLoop.ctr)
+        jr      nz,.cc6gap
+        ld      a,(iy+SExeLoop.pulse)
+        ld      (iy+SExeLoop.ctr),a
+        ld      (iy+SExeLoop.state),0
+.cc6pl:
+        ld      hl,(iy+SExeLoop.pcp)    ;_hl_x iy,SExeLoop.pcp
+        jr      .ccx
+
+.cc6pulse:
+        dec     (iy+SExeLoop.ctr)
+        jr      nz,.cc6pl
+        ld      a,(iy+SExeLoop.gap)
+        ld      (iy+SExeLoop.ctr),a
+        ld      (iy+SExeLoop.state),1
+
+.cc6gap: 
+        ld      hl,(iy+SExeLoop.pcg)    ;_hl_x iy,SExeLoop.pcg
+.ccx:   ld_ix_x iy,SExeLoop.ix
+        ld      bc,SExeLoop             ; length of the structure
+
+.ccr:   add     iy,bc   
+        push    iy
+        ld      de,.rret
+        push    de                  ; ret address
+.efs:   nop                         ; scf or and a to pass frame start flag
+        jp      (hl)
+.rret:  pop     iy
+        jp      .lloop
+
+; ------ exerun
+.ExeRun: 
+        ld      hl,(iy+SExeRun.pc)
+        ld_ix_x iy,SExeRun.ix
+        ld      bc,SExeRun
+        jr      .ccr   
+
+; ------ exe wait
+.ExeWait:
+        ld      a,(ExeFrameStarted)
+        cp      _anda
+        jr      z,.cc71
+        ld      de,(iy+SExeWait.wait)      ;ld_de_x iy,SExeWait.wait
+
+.cce:   ld      (iy+SExeWait.ctr),de       ;ld_x_de iy,SExeWait.ctr
+        ld      bc,SExeWait
+        add     iy,bc
+        jp      .lloop
+
+.cc71:  ld      de,(iy+SExeWait.ctr)       ;ld_de_x iy,SExeWait.ctr
+        dec     de
+        ld      a,d
+        or      e
+        jr      nz,.cce
+        ld      hl,(iy+SExeWait.pc)        ;ld_hl_x iy,SExeWait.pc
+        ld_ix_x iy,SExeWait.ix
+        ld      bc,SExeWait
+        jp      .ccr       
+
+; ----- exe swap
+.ExeSwap:
+        ld      hl,(iy+SExeSwap.pc)        ;ld_hl_x iy,SExeSwap.pc
+        ld      a,(iy+SExeSwap.state)
+        and     a
+        jr      z,.cc8pulse
+        dec     (iy+SExeSwap.ctr)
+        jr      nz,.cc8gap
+        ld      a,(iy+SExeSwap.pulse)   ; get new frame counter
+        ld      (iy+SExeSwap.ctr),a     ; update working counter
+        ld      (iy+SExeSwap.state),0   ; change state to gap
+.cc8pl: ld_ix_x iy,SExeSwap.ixp
+        ld      bc,SExeSwap
+        jp      .ccr
+       
+.cc8pulse:
+        dec     (iy+SExeSwap.ctr)
+        jr      nz,.cc8pl
+        ld      a,(iy+SExeSwap.gap)
+        ld      (iy+SExeSwap.ctr),a
+        ld      (iy+SExeSwap.state),1
+
+.cc8gap: 
+        ld_ix_x iy,SExeSwap.ixg
+        ld      bc,SExeSwap
+        jp      .ccr
+
+.ExeAt:
+        ld      hl,(frames)
+        ld      de,(iy+SExeFrame.fram)  ;ld_de_x iy,SExeFrame.fram
+        and     a
+        sbc     hl,de
+        ld      bc,SExeFrame
+        jr      z,.match
+        add     iy,bc
+        jp      .lloop
+
+.match: ld      hl,(iy+SExeFrame.pc)    ;ld_hl_x iy,SExeFrame.pc
+        ld_ix_x iy,SExeFrame.ix
+        ld      bc,SExeFrame
+        jp      .ccr 
+
+.ExeUntil:
+        ld      hl,(frames)
+        ld      de,(iy+SExeFrame.fram)  ;ld_de_x iy,SExeFrame.fram
+        and     a
+        sbc     hl,de
+        ld      bc,SExeFrame
+        jp      c,.match
+        add     iy,bc
+        jp      .lloop
+
+.ExeAfter:
+        ld      hl,(frames)
+        ld      de,(iy+SExeFrame.fram)  ;ld_de_x iy,SExeFrame.fram
+        and     a
+        sbc     hl,de
+        ld      bc,SExeFrame
+        jp      nc,.match
+        add     iy,bc
+        jp      .lloop
+
+.ExeConfig:
+        inc     iy
+.ecl:   ld      a,(iy+0)         ; configuration id
+        inc     iy
+        cp      1                ; word patcher
+        jr      z,.ec0
+        cp      2                ; byte patcher
+        jr      z,.ec1
+        and     a              ; end of config block
+        jp      z,.cc4         ; goto load next command
+        ret                    ; ret=error!!  
+                
+.ec0:   ld      hl,(iy+0)      ;ld_hl_x iy,0
+        ld      de,(iy+2)      ;ld_de_x iy,2
+        ld      (hl),e : inc hl
+        ld      (hl),d
+     .4 inc     iy
+        jr      .ecl
+
+.ec1:   ld      hl,(iy+0)      ;ld_hl_x iy,0
+        ld      a,(iy+2)
+        ld      (hl),a
+     .3 inc     iy
+        jr      .ecl        
+
+.ExePeriodic:
+        ld      a,(ExeFrameStarted)
+        ld      (.EPcy),a                   ; mimic FrameStarted SCF
+        cp      _anda
+        jr      z,1F
+        ld      (iy+SExePeriodic.cprio),0
+1       ld      hl,(iy+SExePeriodic.iprio)
+        ld      de,(iy+SExePeriodic.cprio)
+        add     hl,de
+        ld      d,h
+        ld      (iy+SExePeriodic.cprio),l
+        ld      bc,SExePeriodic
+        ld      hl,(iy+SExePeriodic.pc)     ; jump addr
+        ld_ix_x iy,SExePeriodic.ix          ; param
+        add     iy,bc
+1       dec     d
+        jp      m,.lloop
+        push    hl,de,iy
+        ld      de,.EPRet
+        push    de
+.EPcy:  nop                                 ;anda or scf
+        jp      (hl)
+.EPRet: pop     iy,de,hl
+        jr      1B
+
+;-------------------------------------------------------------------------------
+; execmd init
+; input: HL - address of command list
+;-------------------------------------------------------------------------------
+.init:
+        ld      (ExeTabInProgress),hl
+        ld      (ExeTabNextFrame),hl
+        ld      (ExeTabStart),hl
+        ld      hl,1
+        ld      (ExeFrames),hl
+        ld      a,_scf
+        ld      (ExeFrameStarted),a
+        ld      a,_anda
+        ld      (.idleFlag),a
+        ret
+
+; used for WaitUntil where it jumps (not calls) to internal kernel routine
+
+.service:
+        pop     hl                    ; pop ret address
+        pop     iy                    ; pop iy (kernel data pointer)
+        ld      (ExeTabNextFrame),ix
+        jp      .next                 ; jump to intended service
+
+.idle:  call    .init
+1       halt
+;        debug_border_inc
+.idleFlag:
+        and     a
+        jr      nc,1B
+dummy:  ret
+
+; call to user routine from user page to destination page.
+; Ensures return to proper page and preserves registers and flags
+; call    longCall
+; db      page
+; dw      address
+longCall:
+        ld      (.shl+1),hl
+        ld      (.sde+1),de
+        ld      (.sbc+1),bc
+        ld      (.saa+1),a
+
+        pop     hl                 ;get ptr for arguments
+        ld      c,(hl)             ;jump page
+        inc     hl
+        ld      e,(hl)             ;jump addr
+        inc     hl
+        ld      d,(hl)             ;
+        inc     hl
+        push    hl                 ;ret address
+        ld      (.jmp+1),de
+        ld      a,(@page)
+        push    af
+        ld      hl,.lret
+        push    hl
+        ld      a,c
+        page_a
+.shl:   ld      hl,#5555
+.sde:   ld      de,#5555
+.sbc:   ld      bc,#5555
+.saa:   ld      a,#55
+.jmp:   jp      #5555
+
+.lret:  ld      (.sra+1),a
+        pop     af
+        page_a
+.sra:   ld      a,#55
+        ret
+
+save_page:
+        ld      a,(@page)
+        ld      (load_page+1),a
+        ret
+
+load_page:
+        ld      a,#55
+apage:
+        ld     (@page),a
+        page_am
+        ret
+/*
+; --- wait BC number of frames
+;waitFrames:
+1       halt
+        cpi
+        jp      pe,1B
+        ret
+*/
+;--- execute number of HALT instructions specified in a
+; input: a (a=0 --> ret)
+waitFrames:
+1        and   a
+         ret   z
+         halt
+         dec   a
+         jr    1B
+
+; --- parametter in the stack
+wait4FrameInStack:
+        pop     hl
+        ld      c,(hl) : inc hl
+        ld      b,(hl) : inc hl
+        push    hl
+; --- wait until BC-th frame occurs
+wait4Frame:
+1       and     a
+        ld      hl,(frames)
+        sbc     hl,bc
+        ret     nc
+        halt
+        jr      1B
+
+testMachine:
+;-- set memory model
+;        ld      bc,#eff7              ; disable pentagon upper memory (128k only)
+;        ld      a,4
+;        out     (c),a
+
+; --- measure reads from bank 1
+; (bank 1 is slow on 128k, fast on +3)
+; im2 vector at testMachine.interrupt
+;        ld     a,#11
+;        ld     bc,#7ffd
+;        out    (c),a                  ; bank 1, rom 0
+
+        ld     a,o1
+        out    (#fd),a
+
+        ld     de,0                   ; reset counter
+        ld     b,#c0                  ; high address #c000
+
+        ei
+        halt                          ; wait for interrupt
+        ld     hl,.save               ; modify jump address to exit loop
+        ld     (.interrupt+1),hl
+        ld     hl,.loop               ; set jump address to loop during this frame
+.loop:
+     .2 ld     a,(bc)
+        inc    de
+        jp     (hl)
+.save:
+        di
+        ld     (memReads),de          ; #b68  128k, #b88  +3, #ba8  pentagon
+        ld     a,d
+        ld     d,0                    ; machine type in d
+        cp     #0b                    ; #bxx is speed of all compatible models
+        jr     c,1F                   ; d=0 machine is too slow
+        jr     z,2F
+        ld     d,#06                  ; d=#06 machine is too fast
+        jr     1F
+
+2       ld     a,e                    ; low byte is enough
+        cp     #68                    ; test of toastrack 128k, +2
+        jr     c,1F                   ; slower machines
+        ld     d,1                    ; keep flags
+        jr     z,1F                   ; d=1 128k/+2
+        inc    d                      ; 2
+        cp     #88                    ;
+        jr     z,1F                   ; d=2 +3
+        inc    d                      ; 3
+;        cp     #a8
+;        jr     z,1F                   ; d=3 Pentagon
+; -- more machines
+
+1       ld     a,d
+        ld     (machine),a
+; -- test of cpu
+        ld     bc,#fffd
+        ld     d,b
+        ld     e,#bf
+        ld     a,7
+        out    (c),a
+        ld     a,b                     ;#ff
+        ld     b,e
+        out    (c),a
+        ld     b,d
+        ld     a,#00                   ;A-freq fine tune
+        out    (c),a
+        ld     b,e
+        out    (c),0                   ;NMOS out (c),0, CMOS out (c),#ff
+        ld     b,d
+        in     a,(c)                   ; check what was sent to the port
+        and    #f0
+        ld     b,a
+
+.z80Ntest:
+        ;; detect Z80N (ie. Next-compatible machine), and tune settings when detected
+        ; modifies: AF always, H (!) on regular Z80
+        ld      a,$80
+        DB $ED, $24, $00, $00   ; mirror a : nop : nop
+
+        ld      c,a
+        or      b
+        ld     (machine.cpu),a
+        dec     c
+        jr      nz,.notZ80nCpu
+
+        ;; Z80N detected - do ZX Next configuration fine-tuning + check
+        ld      bc,$243B
+        ; switch AY to ACB stereo
+        ld      a,$08
+        out     (c),a
+        inc     b
+        in      a,(c)           ; A = nextreg $08 "Peripheral 3"
+        or      %00100000       ; switch ACB stereo ON
+        out     (c),a           ; write nextreg $08
+        dec     b
+        ; switch AY to YM mode
+        ld      a,$06
+        out     (c),a
+        inc     b
+        in      a,(c)           ; A = nextreg $06 "Peripheral 2"
+        and     %11111100       ; switch AY into "YM" mode (bottom bits %00)
+        inc     a               ; "AY" mode (bottom bits %01)
+        out     (c),a           ; write nextreg $06
+.notZ80nCpu:
+                ; regular ZX128 setup
+        ret
+
+.interrupt:                           ; im2 vector here
+        ld     hl,.loop
+.dummyint:
+        ei
+        ret
+
+; execute commads (usually calls routine with parametters pointer in IX)
+; self-mofifying code variables
+ExeFrames:          EQU  execmd.ef   +1  ; counter of frames
+ExeTabInProgress:   EQU  execmd.ttab +2  ; current position of executor table within frame
+ExeTabNextFrame:    EQU  execmd.cc2  +2  ; next position after FrameEnd
+ExeTabStart:        EQU  execmd.erst +2  ; address of table if looped
+ExeFrameStarted:    EQU  execmd.efs      ; flags first frame of FrameStart
+ExeFrameInit:       EQU  execmd.next+1   ; toggle _scf or _anda to enable FrameStart CY for call (init routine)
+ExeSetExl:          EQU  imrut.exl+1     ; address for set-up of "exelst". Runs @ interrupt
+;ExeTabLoop:         EQU  execmd.el       ; 00 flags that table will be reloaded at the end (c9 not)
+
+himem:  equ     $
+        display "end of himem:",himem
+; ----------------------------------

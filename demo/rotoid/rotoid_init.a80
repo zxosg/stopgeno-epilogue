@@ -1,0 +1,133 @@
+; ---------------------------------------
+; make power table
+mkpwrt: ld      ix,pwrt
+.lp1:   ld      a,xl
+        ld      d,0
+        ld      e,a
+        call    math.bsmul0816
+        ld      (ix+0),l
+        inc     xh
+        ld      (ix+0),h
+        dec     xh
+        inc     xl
+        jr      nz,.lp1
+        ret
+; ---------------------------------------
+; make square root table
+mksqrt: ld      ix,sqrt
+        ld      hl,0
+        ld      bc,maxradius*maxradius
+.lp1:   push    hl
+        call    sqr
+        pop     hl
+        ld      (ix+0),a
+        inc     ix
+        cpi
+        jp      pe,.lp1
+        ret
+
+; ---------------------------------------------------------------------
+; fast 16-bit integer square root
+; 92 bytes, 344-379 cycles (average 362)
+; v2 - 3 t-state optimization spotted by Russ McNulty
+
+; call with hl = number to square root
+; returns    a = square root
+; corrupts  hl, de
+; source: john metcalf http://www.retroprogramming.com/2017/07/a-fast-z80-integer-square-root.html
+
+sqr:
+        ld a,h
+        ld de,0B0C0h
+        add a,e
+        jr c,sq7
+        ld a,h
+        ld d,0F0h
+sq7:
+; ----------
+        add a,d
+        jr nc,sq6
+        res 5,d
+        db 254      ; cp instruction, parametter is next byte => skip next instruction
+sq6:
+        sub d
+        sra d
+; ----------
+        set 2,d
+        add a,d
+        jr nc,sq5
+        res 3,d
+        db 254
+sq5:
+        sub d
+        sra d
+; ----------
+        inc d
+        add a,d
+        jr nc,sq4
+        res 1,d
+        db 254
+sq4:
+        sub d
+        sra d
+        ld h,a
+; ----------
+        add hl,de
+        jr nc,sq3
+        ld e,040h
+        db 210
+sq3:
+        sbc hl,de
+        sra d
+        ld a,e
+        rra
+; ----------
+        or 010h
+        ld e,a
+        add hl,de
+        jr nc,sq2
+        and 0DFh
+        db 218
+sq2:
+        sbc hl,de
+        sra d
+        rra
+; ----------
+        or 04h
+        ld e,a
+        add hl,de
+        jr nc,sq1
+        and 0F7h
+        db 218
+sq1:
+        sbc hl,de
+        sra d
+        rra
+; ----------
+        inc a
+        ld e,a
+        add hl,de
+        jr nc,sq0
+        and 0FDh
+sq0:
+        sra d
+        rra
+        cpl
+        ret
+
+
+/*
+; make square root table (slow version)
+mksqrts:
+        ld      ix,sqrt
+        ld      hl,0
+        ld      bc,maxradius*maxradius
+.lp1:   push    hl,bc
+        call    SqrtHL4
+        pop     bc,hl
+        ld      (ix+0),e
+        inc     ix
+        cpi
+        jp      pe,.lp1
+        ret
+*/

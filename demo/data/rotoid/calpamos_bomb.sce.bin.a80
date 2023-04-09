@@ -1,0 +1,88 @@
+; --------------------------------
+;  input file: calpamos_bomb.sce.bin
+;      lenght: 98
+; symbol file: q:\Development\Dev-ZX\_Kernel\main.sym
+; 19 Jun 2020 18:55:41
+	ld  hl,._scene_data
+;	ld  de,.anim
+;	ld  bc,#0014
+;	ldir
+	ld  de,scene
+	ld  bc,sceneSetup.len
+	ldir
+	ld   de,rotoid.mobZeta2
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobCalpamos
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobLV426
+	ld   c,10
+	ldir
+	jp   ._cont_setup
+._scene_data:
+
+; animation
+;	dw #00	; exit
+
+; scene:
+	dw   #FFB5	;.posx:
+	dw   #FFDD	;.posy:
+	dw   #0004	;.posz:
+	dw   #0100	;.far:
+	dw   #0080	;.fade:
+
+; light:
+	dw   #D000	;.posx:
+	dw   #0100	;.posz:
+	db  #F8	;.bright:
+	db  #09	;.contrs:
+	db  #18	;.angle:
+	db  #F8	;.leff:
+	db  #F0	;.reff:
+	db  #03	;.shade:
+	db  #00	;.mode:
+
+; screen:
+	dw   #0054	;.posx:
+	dw   #003F	;.posy:
+	db  #08	;.cltop:
+	db  #BF	;.clbot:
+	db  #43	;.color:
+
+; currObj:
+	dw   #CDC8	;.ptr:
+	db  #76	;.angle:
+	db  #16	;.ldata:
+	dw   #0090	;.posx16:
+
+; obj_1:
+;	dw   rotoid.drawMultiObject	;#98D3	;.drwexe:
+;	dw   rotoid.mobZeta2	;#CEB3	;.mobptr:
+	dw   rotoid.objZeta2	;#CE7F	;.datptr:
+	db  #FF	;.par1:
+	db  #00	;.par2:
+	dw   #FD2E	;.posx:
+	dw   #FDCC	;.posy:
+	dw   #0300	;.posz:
+
+; obj_2:
+;	dw   rotoid.drawMultiObject	;#98D3	;.drwexe:
+;	dw   rotoid.mobCalpamos	;#CDE3	;.mobptr:
+	dw   rotoid.objCalpamos	;#CDAF	;.datptr:
+	db  #7F	;.par1:
+	db  #F6	;.par2:
+	dw   #0000	;.posx:
+	dw   #0000	;.posy:
+	dw   #003A	;.posz:
+
+; obj_3:
+;	dw   rotoid.drawMultiObject	;#98D3	;.drwexe:
+;	dw   rotoid.mobLV426	;#CE2D	;.mobptr:
+	dw   rotoid.objLV426	;#CDF7	;.datptr:
+	db  #7F	;.par1:
+	db  #E6	;.par2:
+	dw   #0015	;.posx:
+	dw   #0007	;.posy:
+	dw   #0063	;.posz:
+._cont_setup:

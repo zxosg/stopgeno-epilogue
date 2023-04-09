@@ -1,0 +1,45 @@
+; --------------------------------
+;  input file: station_scene.sce
+;      lenght: 47
+; symbol file: main_190512_162630.sym
+; 15 May 2019 21:55:47
+
+scene:
+.posx:	dw   #005C
+.posy:	dw   #00B8
+.posz:	dw   #FF93
+.far:	dw   #0100
+.fade:	dw   #0080
+
+light:
+.posx:	dw   #D000
+.posz:	dw   #0100
+.bright:	db  #00
+.contrs:	db  #09
+.angle:	db  #18
+.leff:	db  #00
+.reff:	db  #F8
+.shade:	db  #02
+.mode:	db  #00
+
+screen:
+.posx:	dw   #007F
+.posy:	dw   #0058
+.cltop:	db  #10
+.clbot:	db  #A7
+
+currObj:
+.ptr:	dw   #9437
+.angle:	db  #69
+.ldata:	db  #33
+.posx16:	dw   #006E
+
+obj_1:
+.drwexe:	dw   	;#9C3F
+.mobptr:	dw   	;#9452
+.datptr:	dw   rotoid.segStationRot	;#941E
+.par1:	db  #7F
+.par2:	db  #E9
+.posx:	dw   #0000
+.posy:	dw   #0000
+.posz:	dw   #0040

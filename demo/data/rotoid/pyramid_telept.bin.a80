@@ -1,0 +1,4 @@
+; input file:pyramid_telept.bin
+	defb  #02,#7F,#D0,#00,#00,#00,#00,#00,#00,#00
+	defb  #01,#00,#00,#00,#00,#D0,#9F,#00,#0F,#00
+	defb  #FF

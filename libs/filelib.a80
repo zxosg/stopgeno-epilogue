@@ -1,0 +1,11 @@
+   LUA PASS1
+     function filesize(fname)
+     local fa = io.open(fname,"rb")
+     local current = fa:seek()      -- get current position
+     local size = fa:seek("end")    -- get file size
+     local rets = fa:seek("set", current)        -- restore position
+     fa:close()
+     return size
+     end
+  ENDLUA
+   

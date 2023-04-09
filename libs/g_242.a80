@@ -1,0 +1,848 @@
+;*a
+
+; ---- common head start ----:
+vars:      EQU    #5bb0
+pag_:      EQU    vars                 ; aktualni stranka
+mspd:      EQU    vars+1               ; prehravaci rychlost
+mdis:      EQU    vars+2               ; zakazani hudby (pro multicolor)
+frame:     EQU    vars+3               ; pocitadlo padesatin
+flen:      EQU    vars+5
+custb:     EQU    vars+7               ; event status
+
+vector:    EQU    #8140
+out:       EQU    vector               ; skok na strankovani
+flsh:      EQU    vector+3             ; blik obrazovky, barvy pod SP!
+                                       ; CALL flsh, DB 7,5,3,#ff, RET
+imjp:      EQU    vector+6             ; skok na im2 rutinu
+fwait:     EQU    vector+9             ; ceka na frame v hl, pak ret
+fend:      EQU    vector+12            ; ceka na frame v (flen), Z pokud=
+plmus:     EQU    vector+15            ; play hudby + navrat do orig. pg.
+ehand:     EQU    vector+18            ; event handler  | hl,event addr
+ewait:     EQU    vector+21            ; wait for event | a,event number
+
+playm:     EQU    #c098                ; cisty start hudby
+pagmus:    EQU    81                   ; stranka ve ktere je hudba
+; ---- common head end ----:
+
+exor:      EQU    #a700                ; exception orovany napis
+gfx:       EQU    #c000
+
+dx1:       EQU    1                    ; cara
+dy1:       EQU    2
+dx2:       EQU    2
+dy2:       EQU    3
+
+dx3:       EQU    3                    ; box
+dy3:       EQU    2
+dx4:       EQU    2
+dy4:       EQU    1
+
+           org    #8200
+
+sint:      ds     #0100
+z:
+tab:       db     #40,#77,#44
+           db     #42,#dd,#46
+           db     #40,#dd,#44
+           db     #42,#77,#46
+           db     #41,#bb,#45
+           db     #43,#ee,#47
+           db     #41,#ee,#45
+           db     #43,#bb,#47
+
+           db     #41,#77,#45
+           db     #43,#dd,#47
+           db     #41,#dd,#45
+           db     #43,#77,#47
+           db     #40,#bb,#44
+           db     #42,#ee,#46
+           db     #40,#ee,#44
+           db     #42,#bb,#46
+
+           org    #8400
+tabadd:    ds     #0200
+mksnt:     exx                         ; a: amplitude, c: offset, hl: adr
+           ld     c,a
+           ld     b,#01
+           ld     hl,sintab
+           exx
+           ld     e,#00
+           call   h800e
+           dec    e
+h800e:     call   h8011
+h8011:     ld     b,#40
+h8013:     exx
+           ld     e,(hl)
+           inc    l
+           ld     d,(hl)
+           ld     a,l
+           add    a,b
+           ld     l,a
+           ld     a,c
+           srl    a
+           srl    e
+           jr     nc,h8022
+           add    a,c
+h8022:     srl    a
+           srl    e
+           jr     nc,h8029
+           add    a,c
+h8029:     srl    a
+           srl    e
+           jr     nc,h8030
+           add    a,c
+h8030:     srl    a
+           srl    e
+           jr     nc,h8037
+           add    a,c
+h8037:     srl    a
+           srl    e
+           jr     nc,h803e
+           add    a,c
+h803e:     srl    a
+           srl    e
+           jr     nc,h8045
+           add    a,c
+h8045:     srl    a
+           srl    e
+           jr     nc,h804c
+           add    a,c
+h804c:     srl    a
+           srl    e
+           jr     nc,h8053
+           add    a,c
+h8053:     srl    a
+           srl    d
+           jr     nc,h805a
+           add    a,c
+h805a:     srl    a
+           srl    d
+           jr     nc,h8061
+           add    a,c
+h8061:     srl    a
+           srl    d
+           jr     nc,h8068
+           add    a,c
+h8068:     srl    a
+           adc    a,d
+           exx
+           xor    e
+           jp     p,h8071
+           inc    a
+h8071:     add    a,c
+           ld     (hl),a
+           inc    l
+           djnz   h8013
+           exx
+           ld     a,b
+           xor    #fc
+           ld     b,a
+           exx
+           ret
+
+sintab:    db     #00,#00,#32,#00
+           db     #64,#00,#97,#00
+           db     #c9,#00,#fb,#00
+           db     #2d,#01
+           db     #5e,#01,#90,#01
+           db     #c1,#01,#f2,#01
+           db     #22,#02,#53,#02
+           db     #82,#02
+           db     #b2,#02,#e1,#02
+           db     #10,#03,#3e,#03
+           db     #6c,#03,#99,#03
+           db     #c5,#03
+           db     #f1,#03,#1d,#04
+           db     #48,#04,#72,#04
+           db     #9b,#04,#c4,#04
+           db     #ec,#04
+           db     #13,#05,#3a,#05
+           db     #5f,#05,#84,#05
+           db     #a8,#05,#cb,#05
+           db     #ed,#05
+           db     #0f,#06,#2f,#06
+           db     #4f,#06,#6d,#06
+           db     #8a,#06,#a7,#06
+           db     #c2,#06
+           db     #dd,#06,#f6,#06
+           db     #0e,#07,#25,#07
+           db     #3b,#07,#50,#07
+           db     #64,#07
+           db     #77,#07,#88,#07
+           db     #99,#07,#a8,#07
+           db     #b6,#07,#c3,#07
+           db     #ce,#07
+           db     #d9,#07,#e2,#07
+           db     #ea,#07,#f1,#07
+           db     #f6,#07,#fa,#07
+           db     #fe,#07
+           db     #ff,#07,#ff,#07
+           db     #00
+
+p:         call   flsh                 ; flash
+           db     54,63,45,9,0,#ff
+
+           xor    a
+           call   out
+i:         call   mkadd
+           ld     hl,table
+           ld     (clc+1),hl
+           ld     hl,gfx
+           ld     (added+1),hl
+           call   mkshd
+           ld     a,90
+           ld     c,96
+           ld     hl,sint
+           call   mksnt
+
+           ld     hl,tab
+           ld     (fade+1),hl
+
+;      ei                       |:
+
+pp:        halt
+           call   fade
+
+           ld     ix,pntr2
+           call   clcp
+           ld     ix,px1
+           ld     c,(ix+0)
+           ld     b,(ix+1)
+           ld     e,(ix+2)
+           ld     d,(ix+3)
+           call   box
+;      jp   oo                  |:
+
+           halt
+           ld     a,(rrc+1)
+           rrca
+           ld     a,#47
+           jr     c,flash
+           ld     a,#44
+flash:     call   atrfl
+
+oo:        ld     ix,pntr1
+mdfcl:     call   ret
+           ld     ix,px1
+           ld     c,(ix+0)
+           ld     b,(ix+1)
+           ld     e,(ix+2)
+           ld     d,(ix+3)
+           call   drw
+
+;      ld   bc,32766            |:
+;      in   a,(c)               |:
+;      rra                      |:
+;      jp   c,pp                |:
+;      ret                      |:
+
+rrc:       ld     a,#80
+           rrca
+           ld     (rrc+1),a
+           call   c,clc
+
+           ld     hl,xcodd
+           ld     a,1
+           call   ehand                ; event handler test
+
+           ld     hl,xchgp
+           ld     a,2
+           call   ehand
+
+           call   fend
+           jp     c,pp
+
+           call   flsh
+           db     63,45,0,#ff
+ret:       ret
+
+xcodd:     call   flsh
+           db     12,29,62,4,#ff
+
+           jp     exor
+
+xchgp:     ld     hl,clcp
+           ld     (mdfcl+1),hl
+           call   flsh
+           db     36,4,#ff
+           ret
+
+mkshd:     ld     xh,3
+           ld     de,fader
+
+shl1:      ld     xl,0
+shl2:      ld     hl,smpl1
+           ld     bc,lens1
+           ldir
+           dec    xl
+           jr     nz,shl2
+           ex     de,hl
+           ld     (hl),#7a             ; ld a,d
+           inc    hl
+           ld     (hl),#80             ; add a,b (b=8)
+           inc    hl
+           ld     (hl),#57             ; ld d,a
+           inc    hl
+           ex     de,hl
+           dec    xh
+           jr     nz,shl1
+           dec    de
+           ld     a,#c9
+           ld     (de),a
+           ret
+
+atrfl:     ld     (spp+1),sp
+           ld     sp,#5b00
+           ld     h,a
+           ld     l,a
+           ld     b,24
+phl1:      dw     #e5e5,#e5e5,#e5e5
+
+           dw     #e5e5,#e5e5,#e5e5
+
+           dw     #e5e5,#e5e5
+           djnz   phl1
+spp:       ld     sp,#5555
+           ret
+
+fade:      ld     hl,tab
+           ld     d,(hl)
+           ld     e,0
+           ld     b,8
+           inc    l
+           ld     c,(hl)
+           call   fader
+           inc    l
+           ld     d,(hl)
+           inc    l
+           ld     a,l
+           cp     48
+           jp     nz,cnt1
+           xor    a
+cnt1:      ld     (fade+1),a
+           ld     e,0
+           jp     fader
+
+smpl1:     ld     a,(de)
+           and    c
+           ld     (de),a
+           inc    e
+ends1:
+lens1:     EQU    ends1-smpl1
+
+clcp:      ld     e,(ix+0)
+           ld     d,(ix+1)
+           ld     c,(ix+2)
+           ld     b,(ix+3)
+
+           ld     a,(ix+0)
+           add    a,(ix+4)             ; ix+4 = dx1
+           ld     (ix+0),a
+           ld     a,(ix+2)
+           add    a,(ix+5)             ; ix+5 = dy1
+           ld     (ix+2),a
+
+           ld     a,(de)
+           add    a,32
+           ld     (px1),a
+           ld     a,(bc)
+           ld     (py1),a
+
+           ld     e,(ix+6)
+           ld     d,(ix+7)
+           ld     c,(ix+8)
+           ld     b,(ix+9)
+
+           ld     a,(ix+6)
+           add    a,(ix+10)            ; ix+4 = dx1
+           ld     (ix+6),a
+           ld     a,(ix+8)
+           add    a,(ix+11)            ; ix+5 = dy1
+           ld     (ix+8),a
+
+           ld     a,(de)
+           add    a,32
+           ld     (px2),a
+           ld     a,(bc)
+           ld     (py2),a
+           ret
+
+clc:       ld     hl,table
+           ld     a,31
+           sub    (hl)
+           ld     (wdth+1),a
+           ld     a,(hl)
+           and    a
+           ret    z
+           ld     (wdth2+1),a
+           inc    hl
+           ld     e,a
+           ld     a,(hl)
+           ld     (hig_+1),a
+           inc    hl
+           ld     (clc+1),hl
+           call   mul8
+added:     ld     bc,gfx
+           push   bc
+           add    hl,bc
+           ld     (added+1),hl
+
+           ld     a,r
+           and    31
+wdth:      cp     #55
+           jp     m,okdrw
+           ld     a,(wdth+1)
+okdrw:     ld     c,a
+           ld     a,r
+           cp     191-32
+           jp     m,ok2drw
+           ld     a,191-32
+ok2drw:    ld     b,a
+
+           call   calc
+           pop    de
+hig_:      ld     c,#55
+wdth2:     ld     b,#55
+           push   hl
+wdlp:      ld     a,(de)
+           or     (hl)
+           ld     (hl),a
+           inc    de
+           inc    l
+           djnz   wdlp
+           pop    hl
+           inc    h
+           ld     a,h
+           and    7
+           jp     nz,ok3drw
+           ld     a,l
+           add    a,32
+           ld     l,a
+           jr     c,ok3drw
+           ld     a,h
+           sub    8
+           ld     h,a
+ok3drw:    dec    c
+           jp     nz,wdth2
+           ret
+
+calc:      ld     a,b
+           and    a
+           rra
+           scf
+           rra
+           and    a
+           rra
+           xor    b
+           and    #f8
+           xor    b
+           ld     h,a
+           ld     a,b
+           rlca
+           rlca
+           and    #e0
+           or     c
+           ld     l,a
+           ret
+
+mul8:      ld     h,0                  ; hl=e*a (BUSY MULTIPLE)
+           ld     l,h
+           ld     d,h
+           db     #87,#30,#01,#19
+           db     #29,#87,#30,#01
+           db     #19,#29,#87,#30
+           db     #01,#19
+           db     #29,#87,#30,#01
+           db     #19,#29,#87,#30
+           db     #01,#19,#29,#87
+           db     #30,#01
+           db     #19,#29,#87,#30
+           db     #01,#19,#29,#87
+           db     #30,#01,#19
+           ld     e,c
+           ld     d,b
+           ret
+
+drw:       ld     a,d
+           cp     b
+           jr     nc,h80be
+           ld     d,b
+           ld     b,a
+           ld     a,e
+           ld     e,c
+           ld     c,a
+h80be:     ld     a,c
+           cp     e
+           sbc    a,a
+           and    #08
+           ld     l,#2d
+           jr     z,h80c8
+           dec    l
+h80c8:     inc    a
+           ld     (h8123),a
+           ld     (h8154),a
+           ld     a,l
+           ld     (h8129),a
+           ld     (h815e),a
+           ld     a,b
+           and    a
+           rra
+           scf
+           rra
+           and    a
+           rra
+           xor    b
+           and    #f8
+           xor    b
+           ld     h,a
+           ld     a,c
+           rlca
+           rlca
+           rlca
+           xor    b
+           and    #c7
+           xor    b
+           rlca
+           rlca
+           ld     l,a
+           ld     a,c
+           and    #07
+           rlca
+           rlca
+           rlca
+           cpl
+           or     #c7
+           ld     (h8106),a
+           ld     a,d
+           sub    b
+           ld     d,a
+           ld     a,e
+           sub    c
+           ld     e,a
+           jr     nc,h8104
+           neg
+           ld     e,a
+h8104:     xor    a
+;..... set  0,a:
+           db     #cb
+h8106:     db     #c7
+           ld     c,a
+           ld     a,e
+           cp     d
+           jr     nc,h813e
+           ld     b,d
+           inc    b
+           ld     a,e
+           sub    d
+           ld     e,a
+           xor    a
+           xor    d
+           rra
+h8114:     ex     af,af
+           ld     a,c
+           or     (hl)
+           ld     (hl),a
+           inc    h
+           ld     a,h
+           and    #07
+           jr     z,h8131
+h811e:     ex     af,af
+           add    a,e
+           jr     nc,h812d
+;..... rrc  c:
+           db     #cb
+h8123:     db     #09
+           jr     c,h8129
+           djnz   h8114
+           ret
+h8129:     dec    l
+           djnz   h8114
+           ret
+h812d:     add    a,d
+           djnz   h8114
+           ret
+h8131:     ld     a,#20
+           add    a,l
+           ld     l,a
+           jr     c,h811e
+           ld     a,#f8
+           add    a,h
+           ld     h,a
+           jp     h811e
+h813e:     ld     b,e
+           inc    b
+           ld     a,e
+           sub    d
+           ld     d,a
+           xor    a
+           xor    e
+           rra
+           ex     af,af
+           jr     h8150
+h8149:     ex     af,af
+           inc    h
+           ld     a,h
+           and    #07
+           jr     z,h816b
+h8150:     ld     a,c
+           or     (hl)
+           ld     (hl),a
+;..... rrc  c:
+           db     #cb
+h8154:     db     #09
+           jr     c,h815e
+           ex     af,af
+           sub    d
+           jr     c,h8166
+           djnz   h8149
+           ret
+h815e:     dec    l
+           ex     af,af
+           sub    d
+           jr     c,h8166
+           djnz   h8149
+           ret
+h8166:     add    a,e
+           ex     af,af
+           djnz   h8150
+           ret
+h816b:     ld     a,#20
+           add    a,l
+           ld     l,a
+           jr     c,h8150
+           ld     a,#f8
+           add    a,h
+           ld     h,a
+           jp     h8150
+
+box:       ld     a,d                  ; c=x1 Prazdny obdlznik
+           cp     b                    ; b=y1
+           jr     nc,box01             ; e=x2
+           ld     d,b                  ; d=y2
+           ld     b,a
+box01:     jr     z,rvono
+           ld     a,e
+           cp     c
+           jp     z,zvislo
+           jr     nz,#02
+           ld     c,e                  ; |
+           ld     e,a                  ; |
+           push   bc
+           push   de
+           ld     d,e
+           call   rovno
+           pop    de
+           pop    bc
+           push   bc
+           push   de
+           ld     b,d
+           ld     d,e
+           call   rovno
+           pop    de
+           pop    bc
+           inc    b
+           dec    d
+           ld     a,d
+           cp     b
+           ret    c
+           push   bc
+           push   de
+           ld     c,e
+           call   zvislo
+           pop    de
+           pop    bc
+           jp     zvislo
+
+rvono:     ld     d,e
+           jp     rovno
+
+rovno:     ld     a,d                  ; y :b Vodorovna ciara
+           cp     c                    ; x1:c (x1low x2)
+           jr     nc,#02               ; x2:d
+           ld     d,c                  ; |
+           ld     c,a                  ; |
+           ld     a,c
+           and    #f8
+           ld     e,a
+           ld     a,d
+           and    #f8
+           cp     e
+           jr     nz,r2byte
+           call   addbod
+           ld     b,a
+           ld     a,#ff
+           jr     z,#04
+           srl    a                    ; |
+           djnz   -#04                 ; |
+           ld     c,a
+rov99:     ld     a,d
+           and    #07
+           ld     b,a
+           ld     a,#80
+           jr     z,#04
+           scf                         ; |
+           rra                         ; |
+           djnz   -#04
+           and    c
+;      xor  (hl):
+           or     (hl)
+           ld     (hl),a
+           ret
+
+r2byte:    sub    e
+           rrca
+           rrca
+           rrca
+           ld     e,a
+           call   addbod
+           ld     b,a
+           ld     a,#ff
+           jr     z,#04
+           srl    a                    ; |
+           djnz   -#04                 ; |
+;      xor  (hl):
+           or     (hl)
+           ld     (hl),a
+           ld     b,c
+           ld     c,#ff
+rov40:     inc    l
+           dec    e
+           jr     z,rov99
+;      ld   a,(hl):
+;      cpl:
+;      ld   (hl),#ff:
+           ld     (hl),c
+           jr     rov40
+
+zvislo:    ld     a,d                  ; x :c Zvisla ciara
+           cp     b                    ; y1:b (y1low y2)
+           jr     nc,#02               ; y2:d
+           ld     d,b                  ; |
+           ld     b,a                  ; |
+           ld     a,d
+           sub    b
+           ret    c
+           inc    a
+           ld     d,a
+           call   addbod
+           rlca
+           rlca
+           rlca
+           cpl
+           or     #c7
+           ld     (zz+1),a
+           xor    a
+zz:        set    0,a
+           ld     e,a
+           ld     a,b
+zvis:      cpl
+           and    #07
+           inc    a
+           ld     b,a
+
+zv1:       ld     a,(hl)
+           or     e
+           ld     (hl),a
+           inc    h
+           dec    d
+           ret    z
+           djnz   zv1
+           ld     b,#08
+           ld     a,#20
+           add    a,l
+           ld     l,a
+           jp     c,zv1
+           ld     a,#f8
+           add    a,h
+           ld     h,a
+           jp     zv1
+
+dole:      inc    h
+           ld     a,h
+           and    #07
+           ret    nz
+dolu:      ld     a,#20
+           add    a,l
+           ld     l,a
+           ret    c
+           ld     a,#f8
+           add    a,h
+           ld     h,a
+           ret
+
+mkadd:     ld     hl,#4000
+           ld     ix,tabadd+#0100
+mka1:      ld     (ix+#00),h
+           dec    xh
+           ld     (ix+#00),l
+           call   dole
+           inc    xh
+           inc    xl
+           jr     nz,mka1
+           ret
+
+addbod:    ld     h,high tabadd        ;     Vypocet adresy
+           ld     l,b                  ; bodu zo suradnic
+           ld     a,c
+           rrca
+           rrca
+           rrca
+           and    #1f
+           or     (hl)
+           inc    h
+           ld     h,(hl)
+           ld     l,a
+           ld     a,c
+           and    #07
+           ret
+
+pntr1:     dw     sint
+           dw     sint+#80
+           db     dx1,dy1
+           dw     sint+#10
+           dw     sint+#80
+           db     dx2,dy2
+
+pntr2:     dw     sint+#00
+           dw     sint+#40
+           db     dx3,dy3
+           dw     sint+#10
+           dw     sint+#50
+           db     dx4,dy4
+
+px1:       db     0
+py1:       db     0
+px2:       db     0
+py2:       db     0
+
+table:     dw     #1305,#1307
+           dw     #190c,#1412
+           dw     #190e,#1408
+           dw     #1511,#130c
+           dw     #140b,#1411
+           dw     #130c,#1107
+           dw     #140d,#190e
+           dw     #140f,#130f
+           dw     #190d,#1415
+           dw     #1308,#1307
+           dw     #1309
+           dw     #130e,#130a
+           dw     #1a0a,#1a09
+           dw     #1308,#1a09
+           dw     #190c,#130b
+           dw     #1306,#1907
+           dw     #1a0b,#1a0d
+           dw     #1308,#140a
+           dw     #1309,#140c
+           dw     #140b,#1408
+           dw     #140d,#140e
+           dw     #1308,#130e
+           dw     #130a,#1312
+           dw     #1208,#1205
+           dw     #1206,#130e
+           dw     #1210
+;      end of table!!:
+           dw     #00
+fader:
+l:         EQU    fader-z
+

@@ -1,0 +1,458 @@
+            MODULE vfade
+;--------- lines are shown according to data in buffer
+; input ix - location of the buffer
+
+run1:       border 0
+            ld     bc,(vars.curr.fwait1)
+            call   @Tdelay
+            ld     hl,ix                    ; address of data buffer
+            ld     d,o0                     ; base page
+            ld     c,#08                    ; and vram
+.hgh:       ld     e,#c0                    ; height
+            IFDEF  vfadeTest
+              border 2
+            ELSE
+              border 0
+            ENDIF
+
+2           rrc    (hl)                     ;15
+            sbc    a,a                      ;4
+            and    c                        ;4
+            or     d                        ;4
+            out    (#fd),a
+            inc    hl                       ;6
+.w10:       ld     b,#55                    ;7
+1           djnz   1B                       ;13/8
+            scf
+.w11:       jr     $
+            nop
+            nop
+            nop
+            ret    nc
+            ret    nc
+            dec    e                        ;4
+            jp     nz,2B                    ;10
+            IFDEF  vfadeTest
+              border 1
+            ELSE
+              border 0
+            ENDIF
+            ret
+
+;------ lines are shown according to bitmap data
+run2:       border 0
+            ld     bc,(vars.curr.fwait2)     ; frame wait
+            call   @Tdelay
+            exx
+.w10:       ld     e,#55
+.w20:       ld     h,#55
+            ld     b,o0
+            ld     c,#08
+            exx
+
+            ld     hl,(vars.cdata)
+            ld     a,(vars.height)
+            ld     b,a
+            IFDEF  vfadeTest
+              border 2
+            ELSE
+              border 0
+            ENDIF
+
+.loop:      ld     a,(hl)            ;7
+            inc    hl                ;6
+            exx                      ;4
+            ld     l,a               ;4
+            ld     xl,7
+
+.llop:      rrc    l               ;8
+            sbc    a,a             ;4
+            and    c               ;4
+            or     b               ;4
+            out    (#fd),a         ;12
+            ld     d,e             ;4      w10
+1           dec    d               ;4
+            jr     nz,1B           ;12
+.w11:       jr     1F
+1           nop
+        .4  ret    nz
+            dec    xl
+            jr     nz,.llop
+
+            rrc    l
+            sbc    a,a
+            and    c
+            or     b
+            out    (#fd),a
+            ld     d,h             ;       w20
+1           dec    d               ;4
+            jr     nz,1B           ;12+8   1=4+8=12, 2=4+12+4+8=16+12=28 3=28+16=42
+
+.w21:       jr     1F
+1           nop
+        .4  ret     nz
+
+            exx                      ;4
+            nop
+            nop                      ;4
+            nop
+
+            dec     b               ;4
+
+            jp       nz,.loop        ;10
+.rrc:       ld     a,#ff                     ;#f0 ==> controls "speed" of animation
+            rrca
+            ld     (.rrc+1),a
+            ret    nc
+            ld     a,(vars.cfram)
+            dec    a
+            jp     p,1F
+            inc    a
+            ld     (vars.cfram),a
+            IFDEF  vfadeTest
+              border 3
+            ELSE
+              border 0
+            ENDIF
+
+.cycle:     ret                      ; nop / ret
+            jp     restore           ;a=0 --> restore
+1           ld     (vars.cdata),hl
+            ld     (vars.cfram),a
+            ret
+
+;-----------
+; a=computer type 0-128k, 1-p3, 2-pentagon
+init:       ld     c,vfconf
+            call   rsc.smul
+            ld     de,vars.machines
+            add    hl,de
+            ld     de,vars.curr
+            ldir
+
+            ld     a,(vars.curr.lwait1)
+            ld     (run1.w10+1),a
+            ld     a,(vars.curr.lwait2)
+            ld     (run1.w11+1),a
+            ld     a,(vars.curr.lwait3)
+            ld     (run2.w10+1),a
+            ld     a,(vars.curr.lwait4)
+            ld     (run2.w20+1),a
+            ld     a,(vars.curr.lwait5)
+            ld     (run2.w11+1),a
+            ld     a,(vars.curr.lwait6)
+            ld     (run2.w21+1),a
+;            ret
+
+buffClear:  push   hl
+            ld     hl,1
+            ld     (seqRun.frm+1),hl
+            push   bc
+;clear buffer
+            ld     hl,data
+            ld     b,0
+1           ld     (hl),0
+            inc    hl
+            djnz   1B
+            pop    bc,hl
+            ret
+
+restore:    ld     ix,#5555                  ; this is used for cyclic/repeating bitmap
+; ---
+; input ix=address of HDI bitmap
+;        a=0 animation will cycle, <>0 - won't cycle
+init2:      ld     (restore+2),ix
+            and    a
+            jr     z,1F
+            ld     a,#c9
+1           ld     (run2.cycle),a
+            ld     a,(ix+hdi.bwidth)
+            ld     (vars.height),a           ; bitmap width = height of fade area
+            ld     a,(ix+hdi.height)
+            ld     (vars.cfram),a            ; bitmap height = number of animation frames
+            ld     bc,hdi
+            add    ix,bc
+            ld     (vars.cdata),ix
+            ret
+
+; this routine is changing vram line data as timed sequence (specified by IX)
+seqRun:     call   c,buffClear
+.frm:       ld     de,0                      ; frames
+            ld     a,d
+            or     e
+            jr     z,1F
+
+            dec    de                        ; only substract frame and ret
+            ld     (seqRun.frm+1),de
+            ret
+
+1           ld     hl,(ix+0)
+            ld     c,(hl) : inc hl           ; seq frames
+            ld     b,(hl) : inc hl
+            ld     e,(hl) : inc hl           ;     new data vram line
+            ld     d,(hl) : inc hl
+            ld     a,c
+            or     b
+            ret    z                         ; no more data in the table
+            ld     (seqRun.frm+1),bc         ; save frames
+            ld     (ix+0),hl
+
+            ex     de,hl
+2           ld     a,(hl) : inc hl           ; count of repetitions (0=end)
+            and    a
+            ret    z
+
+1           ld     b,0
+            ld     c,(hl) : inc hl           ; buff offset (data+offset)
+            ex     de,hl
+            ld     hl,data
+            add    hl,bc
+            ex     de,hl
+1           push   hl
+            ld     c,(hl) : inc hl           ; seq length
+            ldir
+            pop    hl
+            dec    a
+            jr     nz,1B
+            ld     c,(hl) : inc hl
+            add    hl,bc
+            jr     2B
+
+line:       call   c,.init
+            ld     hl,(ix+vfline.ipos)
+            ld     c,h                       ; current position
+            ld     a,(ix+vfline.end)
+            cp     h
+            jr     nz,1F
+
+            bit    0,(ix+vfline.mode)        ; test repeat
+            jr     z,3F
+            ld     h,(ix+vfline.start)
+            ld     l,0
+
+1           ld     de,(ix+vfline.incr)
+            add    hl,de
+            ld     (ix+vfline.ipos),hl
+3           ld     b,h
+            ld     hl,data
+            ld     e,c
+            ld     d,0
+            add    hl,de
+;-- erase
+            ld     e,(ix+vfline.glen)
+            ld     a,(ix+vfline.resval)
+1           ld     (hl),a
+            inc    hl
+            dec    e
+            jr     nz,1B
+
+            ld     hl,data
+            ld     e,b
+            add    hl,de
+            ex     de,hl
+            ld     hl,ix               ; addr of struct
+            ld     bc,vfline
+            add    hl,bc               ; address of gfx data (after struct)
+            ld     b,(ix+vfline.glen)  ; length
+;-- draw
+1           ld     a,(hl)
+            rrca
+            ld     (hl),a
+            ld     a,(de)
+            or     (hl)
+            ld     (de),a
+            inc    de
+            inc    hl
+            djnz   1B
+            ret
+
+.init:      call   buffClear
+            ld     a,(ix+vfline.start)
+            ld     (ix+vfline.ipos+0),0
+            ld     (ix+vfline.ipos+1),a
+            ret
+
+            STRUCT vfline
+ipos:       dw     0
+incr:       dw     0
+start:      db     0
+end:        db     0
+mode:       db     0                   ; bit0=1 repeat from start
+glen:       db     0                   ; data length
+resval:     db     0                   ; reset value
+                                       ; data follows end of the structure
+;data
+            ENDS
+
+            STRUCT vfconf
+fwait1:     dw     0
+lwait1:     db     0
+lwait2:     db     0
+fwait2:     dw     0
+lwait3:     db     0
+lwait4:     db     0
+lwait5:     db     0
+lwait6:     db     0
+            ENDS
+
+vars:
+.cdata:     dw     0
+.cfram:     db     0
+.height:    db     #18
+.curr:      vfconf
+.machines:
+;-------------------------------------------------------------------
+.slow:      vfconf 13620, #0b, 5, 13574, #0a, #06, #04, #00
+; -- configured for execmd
+.zx128:     vfconf 13620, #0b, 5, 13574, #0a, #06, #04, #00
+.p3:        vfconf 13620, #0b, 5, 13574, #0a, #07, #04, #01
+.pent:      vfconf 17202, #0a, 1, 17194, #0a, #08, #05, #03
+; -- not configured
+.c0:        vfconf 17202, #0a, 1, 17194, #0a, #08, #05, #03
+.c1:        vfconf 17202, #0a, 1, 17194, #0a, #08, #05, #03
+.c2:        vfconf 17202, #0a, 1, 17194, #0a, #08, #05, #03
+;###################################################################
+sqTest:     dw     .s
+;-----             frames, vram_line_data
+.s:         dw     5000,  .data0
+            dw     5000,  .data1
+            dw     0                                                ; end mark
+
+            ; no of reps, offset, length of rep, data
+.data0:     db     #60,#00,#02,#55,#aa
+            db     0
+
+.data1:     db     #60,#00,#02,#aa,#55
+            db     0
+
+;###################################################################
+sqBadpix:   dw     .s
+;-----             frames, vram_line_data
+.s:         dw     500,  bpd1
+            dw      10,  dtComp2
+            dw     0                                                ; end mark
+
+            ; no of reps, offset, length of rep, data
+bpd1:       db     #31,#00,#02,#55,#aa                              ; no of reps, offset, length of rep, data
+            db     #01,#62,#20
+            db     #ff, #ff, #ff, #00, #ff, #ff, #00, #ff
+            db     #00, #00, #00, #ff, #00, #00, #ff, #ff
+            db     #ff, #00, #ff, #ff, #00, #ff, #00, #00
+            db     #00, #ff, #00, #00, #ff, #00, #ff, #ff
+            db     0                                                ; end of reps
+
+;###################################################################
+sqComp:     dw     .s
+;-----             frames, vram_line_data
+.s:         dw     50,  dtComp1
+            dw     25,  dtComp2
+            dw     12,  dtComp1
+            dw     50,  dtComp2
+            dw     12,  dtComp1
+            dw     50,  dtComp2
+            dw     0                                                ; end of reps
+
+            ; no of reps, offset, length of rep, number of data, ...data, 0=end of sequence
+dtComp1:    db     #02,#00,#08
+_v: = #0001
+_i: = 0
+               DUP    8
+                  db     (_v << _i) and #ff
+_i:               = _i + 1
+               EDUP
+            db     0                                                ; end of reps
+
+dtComp2:    db     #01,#40,#09
+            db     #03,#03,#03,#03
+            db     #03,#03,#03,#03
+            db     #03
+            db     0                                                ; end of reps
+
+;###################################################################
+sqHelmet:   dw     .s                                            ; first is pointer to current sequence
+;-----             frames, vram_line_data, start_offset, length
+.s:         dw     100, .data3
+            dw     050, .data4
+            dw     025, .data1
+            dw     025, .data3
+            dw     050, .data4
+            dw     025, .data3
+            dw     025, .data1
+            dw     200, .data2
+            dw     0                     ; end mark
+
+.data1:     db     #20,#50,#02
+            db     #55,#aa
+            db     0                     ; end mark
+
+.data2:     db     #08,#50,#08
+              db     %11110000
+              db     %01111000
+              db     %00111100
+              db     %00011110
+              db     %00001111
+              db     %10000111
+              db     %11000011
+              db     %11100001
+            db     0                     ; end mark
+
+.data3:     db     #40,#50,#01
+            db     0
+            db     0                     ; end mark
+
+.data4:     db     #40,#50,#01
+            db     #ff
+            db     0                     ; end mark
+
+;###################################################################
+sqTitles:   dw     .s
+.s:         dw     #200, .data1
+            dw     #200, .data2
+            dw     0
+
+.data1:     db     #60,00,#02
+            db     #55,#aa
+            db     0                     ; end mark
+
+.data2:     db     #60,00,#08
+            db     1,2,4,8,16,32,64,128
+            db     0                     ; end mark
+
+;###################################################################
+
+            ;       ipos ,inc,strt, end, mode, len, resval
+lnBadpix:   vfline #9000,-#0060,#90,#00,#00,#10,#00
+;lnBadpix:   vfline #0000,#0060,#00,#90,#00,#10,#00
+            db     #ff,#00,#ff,#ff,#00,#ff,#ff,#ff
+            db     #ff,#ff,#ff,#00,#ff,#ff,#00,#ff
+
+
+lnDark:     vfline #3000,#0030,#30,#70,#00,#04,#00
+            db     #aa,#00,#ff,#ff
+
+lnComp1:    vfline #0000,#0400,#00,#b4,#00,#10,#00
+            db     #55,#ff,#ff,#ff,#ff,#ff,#ff,#ff
+            db     #ff,#ff,#ff,#ff,#ff,#ff,#ff,#55
+
+lnComp2:    vfline #0000,#0060,#00,#70,#00,#03,#00
+            db     #55,#ff,#aa
+
+lnTitles:   vfline #6000,-#0080,#70,#50,#00,#07,#00
+            db     #aa,00,#55,#ff,#55,#00,#aa
+
+            ;       ipos ,inc,strt, end, mode, len, resval
+lnInvader:  vfline #0000,-#0400,#c0,#00,#00,#10,#00
+            db     #ff,#00,#ff,#ff,#00,#ff,#ff,#ff
+            db     #ff,#ff,#ff,#00,#ff,#ff,#00,#ff
+
+;###################################################################
+hdiTest:    hdi    #18,2,0
+            ds     #18,#55
+            ds     #18,#aa
+
+
+data: = @swap
+;data:       ds     #100
+
+            display "vfade:",$-vars
+            ENDMODULE

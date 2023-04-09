@@ -1,0 +1,845 @@
+; rotoid definition file
+; 18.11.2018 - intial release
+
+        define  mDraw drawMultiObject
+        define  mDel  eraseMultiObject
+        define  gDraw rotoid.drawMobHDI
+        define  gDel  rotoid.eraseMobHDI
+
+; multi object definition (object consists of more objects)
+        STRUCT mobdef       ; scale, angle, posx, posy, posz, objptr
+objptr:   dw     0          ; points to series of objdefs
+scale:    db     0          ; if 7-th bit set then symobj angle is ignorred
+angle:    db     0
+posx:     dw     0
+posy:     dw     0
+posz:     dw     0
+        ENDS
+
+KGfxPut:  =      0
+KGfxOr:   =      1
+
+/*
+; gfx definition (reusing mobdef format to enable sorting of z-pos)
+         STRUCT mobgfx
+gfxptr:   dw      0   ; source data address
+wdth:     db      0   ; 7bit 1=OR, 0=LDI
+hght:     db      0
+posx:     dw      0   ; chars
+posy:     dw      0   ; pixels
+posz:     dw      0
+         ENDS            
+*/
+
+; image header format:
+        STRUCT hdi
+bwidth:   db     0
+height:   db     0
+atrsize:  db     0
+        ENDS
+
+        STRUCT mobhdi
+gfxptr:  dw      0          ; source data address OR eraseptr
+mode:    db      0          ; 7bit 1=OR, 0=LDI
+                            ; 6bit 1=perspective correction, 0=no
+                            ; 5bit 1=ignore scene and perspective
+                            ; 3bit 1=fill object with 0 (somehow like erase object)
+                            ; 2bit 1=gfxptr points to "erahdi" object
+                            ; 0bit 0/1 fill bit for pre-rotated bitmaps                            ; 4bit
+mode2:   db      0          ; pre-scrolled bitmap (1-8 instances, 2-4 instances and 4-2 instances)
+posx:    dw      0          ; chars
+posy:    dw      0          ; pixels
+posz:    dw      0
+        ENDS
+
+        STRUCT erahdi
+gfxptr:  dw      0
+addr:    dw      0          ; 1st vram swapable data
+bwidth:  db      0          ;
+height:  db      0          ;
+         ds      4          ; 2nd vram
+        ENDS
+
+        MACRO    machdi     _gfxptr, _mode1, _mode2, _posx, _posy, _posz
+        dw       .l
+        db       _mode1, _mode2
+        dw       _posx, _posy, _posz
+.l      dw       _gfxptr
+        ds       8,0
+        ENDM
+
+        STRUCT mirr
+xpos2:   db  0
+ypos2:   db  0
+xpos1:   db  0
+ypos1:   db  0
+
+wdth:    db  0
+hght:    db  0
+mode:    db  0
+sfx:     db  0
+        ENDS
+
+
+; symmetrical object definition
+        STRUCT symobj       ; type, woff, yoff, xoff, y0, y1, par1, par2, eff
+type:     db     0          ; object type
+                            ; 0-arc, 1-line, 2-bounding box
+                            ; bit7=1 - segment definition for left side
+woff:     db     0          ; width offset of current segment (06.04.2019: former x-off)
+yoff:     db     0          ; y-position (0=top) (19.01.2019 y-offset modified into y-position to fix line gaps)
+xoff:     db     0          ; x-offset (offsets currently drawn segment x-pos)
+y0:       db     0          ; start y postion
+y1:       db     0          ; Height of the segment
+par1:     db     0          ; object specific parametter
+par2:     db     0          ; object specific parametter
+leff:     db     0          ; shading left
+reff:     db     0          ; shading right
+                            ; shading additional options:
+                            ; bit 4 = 1 - fixed color (no light is considered)
+                            ; bit 5 = 1 - color will depend on the z-position. fade out with distance
+                            ; bit 6 = 1 - do not draw color (skip draw)
+                            ; bit 7 = 1 - leff only: next segment will define lefft side (type of next segment must be with 7bit=1!)
+        ENDS
+        
+; modification 09.12.2018 - cltop/clbot moved to screen.cltop / screen.clbot
+; object definition for drawing on screen
+        STRUCT objdef       ; obdef,scale,angle,rposX,rposY,cltop,clbot
+obdef:    dw     0          ; pointer to object definition
+scale:    db     0          ; scale of the drawn object (set 7th bit = no scale)
+angle:    db     0          ; angle of the shadow
+rposx:    dw     0          ; relative position X to the (mob) object position x
+rposy:    dw     0          ; dtto Y
+options:  db     0          ; bit 7=1 - object is hidden,
+                            ; bit 6=1 - object shall not be deleted using eraseObject.
+                            ; ---Bit6 is set automatically by segment type = 3 by calcRight
+                            ; bit 5=1 - use screen positions (no perspective calculation in setObjectOrigin)
+                            ; bit 4   - not used
+                            ; bit 3   - not used
+                            ; bit 2=1 - light enabled
+                            ; -- bit 1=1 - light mode
+                            ; -- bit 0=1 - light mode
+posx16:   dw     0          ; x 16bit position (off screen); pixels 0-255 are visible
+posy16:   dw     0          ; y 16bit position. y - visibility defined by clipping
+; -- 1st vram
+bbwdth:   db     0          ; object bounding box width
+bbhght:   db     0          ; object bounding box height
+bboxx:    db     0          ; position of bounding box x 
+bboxy:    dw     0          ; position of bounding box y
+clip:     db     0          ; screen clipping flag
+;-- 2nd vram
+bbwdth_:  db     0          ; object bounding box width
+bbhght_:  db     0          ; object bounding box height
+bboxx_:   db     0          ; position of bounding box x 
+bboxy_:   dw     0          ; position of bounding box y
+clip_:    db     0          ; screen clipping flag
+        ENDS
+        
+        MACRO arc woff, yoff, y0, y1, radius, quadrant, leff, reff
+          db    0         ; arc type
+          db    woff
+          db    yoff
+          db    0
+          db    y0
+          db    y1
+          db    radius
+          db    quadrant
+          db    leff
+          db    reff
+        ENDM
+        
+        MACRO lin wdth, ypos, xpos, hght, slop, leff, reff
+          db    1         ; arc type
+          db    wdth
+          db    ypos
+          db    xpos
+          db    0
+          db    hght
+          dw    slop
+          db    leff
+          db    reff
+        ENDM
+        
+        MACRO box maxx,maxy,fill
+          db    2
+          db    maxx
+          db    maxy
+          db    0
+          db    0
+          db    0
+          db    fill
+          db    0
+          db    0
+          db    0
+        ENDM
+
+        MACRO box2 maxx,maxy,fill
+          db    3
+          db    maxx
+          db    maxy
+          db    0
+          db    0
+          db    0
+          db    fill
+          db    0
+          db    0
+          db    0
+        ENDM
+
+        MACRO mSegBall rad,lef,ref
+          box rad, 2*rad, 0
+          arc 0,  0, 0, rad, rad, 1, lef, ref
+          arc 0,rad, 0, rad, rad, 4, lef, ref
+          db  #ff
+        ENDM
+
+        MACRO    objmac obdef,scale,angle,rposx,rposy                                   ;cltop,clbot
+          dw     obdef          ; pointer to object definition
+          db     scale          ; scale of the drawn object (set 7th bit = no scale)
+          db     angle          ; angle of the shadow
+          dw     rposx          ; relative position X to the mob position x
+          dw     rposy          ; dtto Y
+          db     0              ; flag to hide object
+          ds     objdef-9, 0
+        ENDM
+        
+        MACRO    anmmac obdef,scale,angle,rposx,rposy,option                            ;cltop,clbot,option
+          dw     obdef          ; pointer to object definition
+          db     scale          ; scale of the drawn object (set 7th bit = no scale)
+          db     angle          ; angle of the shadow
+          dw     rposx          ; relative position X to the mob position x
+          dw     rposy          ; dtto Y
+          db     option         ; 128=hidden, 0-displayed
+          ds     objdef-9, 0
+        ENDM
+
+;--- commands defined in drawMultiObject.skipHidden
+;--- closing command of multiobject definition (put after last objdef)
+
+; below this command follows exeptr chain of commands
+        MACRO    objptr
+          dw     #01, ._ptr       ; .exeAnim
+._ptr
+        ENDM
+
+; below this command follows regular z80 code
+        MACRO    objexe
+          dw     #02            ; .runCode
+        ENDM
+
+        MACRO    objend
+          dw     #00
+        ENDM
+
+        MACRO    mobmac  objptr, scale, angle, posx, posy, posz
+          dw     objptr         ; points to series of objdefs
+          db     scale
+          db     angle
+          dw     posx
+          dw     posy
+          dw     posz
+        ENDM       
+
+        MACRO    gdraw _ptr
+          dw     drawMobHDI, _ptr
+        ENDM
+
+        MACRO    gdel  _ptr
+          dw     eraseMobHDI, _ptr
+        ENDM
+
+        MACRO    mdraw ptr
+         dw      drawMultiObject,ptr
+        ENDM
+        
+        MACRO    mdel ptr
+         dw      eraseMultiObject,ptr
+        ENDM
+
+        MACRO    cnmScnXYZ x,y,z
+         ld      hl,x
+         ld      (rotoid.scene.posx),hl
+         ld      hl,y
+         ld      (rotoid.scene.posy),hl
+         ld      hl,z
+         ld      (rotoid.scene.posz),hl
+        ENDM
+        
+        MACRO    cnmScrCenter x,y
+         ld      hl,x
+         ld      (rotoid.screen.posx),hl
+         ld      hl,y
+         ld      (rotoid.screen.posy),hl
+        ENDM
+        
+        MACRO    cnmScnFar p
+         ld      hl,p
+         ld      (rotoid.scene.far),hl
+        ENDM
+        
+        MACRO    cnmScnFade p
+         ld      hl,p
+         ld      (rotoid.scene.fade),hl
+        ENDM
+        
+        MACRO    cnmScrTopBot p,q
+         ld      hl,p+q*256
+         ld      (screen.cltop),hl
+        ENDM
+        
+        MACRO    cnmMobPos mob,x,y,z
+         ld      hl,x
+         ld      (mob+mobdef.posx),hl
+         ld      hl,y
+         ld      (mob+mobdef.posy),hl
+         ld      hl,z
+         ld      (mob+mobdef.posz),hl
+        ENDM
+
+; animate.moveCnt
+; _mob - address of data or structure that is modified
+; _stp - add value in every step
+; _off - offset to address from _mob address (e.g. _mob=0, _off=10 ==> target address is 0+10)
+; _cnt - number of steps
+; _dly - delayed start (number of passes)
+        MACRO    mAniMoveCD _mob, _off, _stp, _cnt, _dly
+           dw      animate.moveCnt
+           dw      _mob+_off
+           dw      _stp
+           db      _dly
+           db      _cnt
+        ENDM
+
+; same as above, yet with fps considered
+        MACRO    mAniMoveCDf _mob, _off, _stp , _cnt, _dly
+           dw      animate.moveCntf
+           dw      _mob+_off
+           dw      _stp
+           db      _dly
+           db      _cnt
+        ENDM
+
+; modify only speed, delay and count is managed through exeptr (mTimed)
+        MACRO    mAninMove _mob, _off, _stp
+           dw      animate.moveCnt2
+           dw      _mob+_off
+           dw      _stp
+        ENDM
+
+        MACRO    mAninMovef _mob, _off, _stp
+           dw      animate.moveCntf2
+           dw      _mob+_off
+           dw      _stp
+        ENDM
+
+;---------------------------------
+/*
+          dw animate.moveAccf,scene.posx
+          db #00,#ff    ; delay count
+          dw #00,#0020  ; temp, adder
+          db 0,#2        ; speed_start, speed_end
+          db 0          ; offset
+*/
+        MACRO    mAniMoveAcc _mob, _off, _cnt, _dly, _sp_start, _sp_end, _spd
+          dw     animate.moveAcc
+          dw     _mob+_off
+          db     _dly,_cnt
+          dw     0,_spd
+          db     _sp_start, _sp_end
+        ENDM
+
+        MACRO    mAniMoveAccf _mob, _off, _cnt, _dly, _sp_start, _sp_end, _spd
+          dw     animate.moveAccf
+          dw     _mob+_off
+          db     _dly,_cnt
+          dw     0,_spd
+          db     _sp_start, _sp_end
+        ENDM
+
+        LUA ALLPASS
+         function round(num)
+         return num+0.5-(num+0.5)%1
+         end
+
+         function res0(num)
+         return math.floor(num/2)*2
+         end
+
+         function getdefine(sjdefine)
+           local i
+           i = _c(sj.get_define(sjdefine))
+           --print(string.format("%x",i)," ",i-4294967296.0)
+           if (i<32767) then
+              return i
+           else
+              return (i-4294967296.0)              -- OH MY GOD! Who developed this Lua piece of shit!
+           end
+         end
+
+        ENDLUA
+
+        MACRO    mAniMoveV0S _mob, _off, _cnt, _dly, _v0, _s
+          display "accelerator v0 S : ",_mob
+          define __lt _cnt
+          define __lv0 _v0
+          define __lve 0
+          define __ls _s
+
+          dw     animate.moveAcc, _mob+_off
+          db     _dly,_cnt
+          dw     0
+
+          LUA ALLPASS
+            t  = getdefine("__lt")   -- time
+            v0 = getdefine("__lv0")  -- start speed
+            s  = getdefine("__ls")   -- distance
+
+            a  = 2*(s-(v0*t))/(t^2)          -- calculate acceleration
+            aw = math.floor(256*a)           --   16bit
+            ve = math.floor(v0+a*t)          -- end speed
+            print ("  >> s:"..s.." t:"..t.." v0:"..v0.." ve:"..ve.." a:"..a.." aw:"..aw)
+            _pc("dw "..aw)
+            _pc("db "..v0)
+            _pc("db "..ve)
+          ENDLUA
+
+          undefine __lt
+          undefine __lv0
+          undefine __lve
+          undefine __ls
+        ENDM
+
+        MACRO    mAniMoveV0E _mob, _off, _dly, _v0, _ve, _s
+          display "accelerator v0 ve: ",_mob
+
+          define __lv0 _v0
+          define __lve _ve
+          define __ls _s
+
+          dw     animate.moveAcc, _mob+_off
+          db     _dly
+
+          LUA ALLPASS
+            ve = getdefine("__lve")          -- end speed
+            v0 = getdefine("__lv0")          -- start speed
+            s  = getdefine("__ls")           -- distance
+
+            a  = (ve^2-v0^2)/(2*s)           -- calculate acceleration
+            aw = math.floor(256*a)           --   16bit
+            t  = math.floor((ve-v0)/a)       --   time to get there
+
+            print ("  >> s:"..s.." t:"..t.." v0:"..v0.." ve:"..ve.." a:"..a.." aw:"..aw)
+
+            _pc("db "..t)
+            _pc("dw 0")
+            _pc("dw "..aw)
+            _pc("db "..v0)
+            _pc("db "..ve)
+          ENDLUA
+
+          undefine __lv0
+          undefine __lve
+          undefine __ls
+
+        ENDM
+
+;--- cyclic parabolic movement
+  /* -- data structure
+        db      count_reset
+        db      delay
+        db      count_current
+        dw      accel_temp
+        dw      accel_adder
+        dw      v0
+*/
+          LUA ALLPASS
+            function accel(s,dt,dl,m)          -- s-distance, t-time, dl-delay, m-mode
+            t = dt/2
+
+            if (dl>127) then
+               sj.error("Error in SIN/COS - delay > 127")
+               -- sj.exit(128)
+            end
+
+            a = -(2*s)/(t^2)                   -- calculate acceleration
+            v  = -a*t                          -- start speed
+            aw = round(256*a)
+            vw = round(256*v)                  -- v0
+
+            print("s:",s," t:",t," v:",v," a:",a)
+
+            _pc("db "..dt)                  -- count reset
+
+            if (m==0) then                     -- SIN
+
+               _pc("db "..dl)                  -- delay
+               _pc("db "..dt)                  -- count current
+               _pc("dw 0")                     -- unused for SIN
+               _pc("dw 0")                     -- accel temp
+            elseif(m==1) then                  -- COS
+
+               _pc("db "..dl+128)              -- delay + marker of cos
+               _pc("db "..round(t))        -- COS(0) initial marker
+               _pc("dw "..s)                   -- amplitude for COS(0)
+               _pc("dw "..round(aw*t))       -- accel temp
+            elseif(m==2) then                  -- COS initialized
+
+               _pc("db "..dl)              -- delay + NO marker of cos (object already initialized)
+               _pc("db "..round(t))        -- COS(0) initial marker
+               _pc("dw "..s)                   -- amplitude for COS(0)
+               _pc("dw "..round(aw*t))       -- accel temp
+            end
+            _pc("dw "..aw)                  -- accel adder
+            _pc("dw "..vw)                  -- v0
+            return
+            end
+          ENDLUA
+
+/* -- data structure
+        db      count_reset
+        db      delay
+        db      count_current
+        dw      speed_cur
+        dw      accel
+        dw      speed_v0
+        db      offset to base address
+*/
+
+        MACRO    mAniMoveSin _mob, _off, _dly, _cnt, _s
+          display "accelerator SIN: ",_mob+_off
+          define __ls _s
+          define __lt _cnt
+          define __dl _dly
+
+          dw     animate.moveCyc, _mob+_off
+          LUA ALLPASS
+            s  = getdefine("__ls")   -- half distance
+            t  = getdefine("__lt")   -- counter reset
+            dl = getdefine("__dl")   -- delay
+            accel(s,t,dl,0)                    -- mode 0-sin
+          ENDLUA
+
+          undefine __lt
+          undefine __ls
+          undefine __dl
+        ENDM
+
+        MACRO    mAniMoveCos _mob, _off, _dly, _cnt, _s
+          display "accelerator COS: ",_mob
+          define __ls _s
+          define __lt _cnt
+          define __dl _dly
+
+          dw     animate.moveCyc, _mob+_off
+          LUA ALLPASS
+            s  = getdefine("__ls")   -- half distance
+            t  = getdefine("__lt")   -- counter reset
+            dl = getdefine("__dl")   -- delay
+            accel(s,t,dl,1)                  -- mode 1-cos
+          ENDLUA
+
+          undefine __lt
+          undefine __ls
+          undefine __dl
+        ENDM
+
+        MACRO    mAniMoveCos2 _mob, _off, _dly, _cnt, _s
+          display "accelerator COS2: ",_mob
+          define __ls _s
+          define __lt _cnt
+          define __dl _dly
+
+          dw     animate.moveCyc, _mob+_off
+          LUA ALLPASS
+            s  = getdefine("__ls")   -- half distance
+            t  = getdefine("__lt")   -- counter reset
+            dl = getdefine("__dl")   -- delay
+            accel(s,t,dl,2)                  -- mode 2-cos
+          ENDLUA
+
+          undefine __lt
+          undefine __ls
+          undefine __dl
+        ENDM
+
+;---------------------------------
+;-- move xyz
+; param No:   Description:
+;        1:  offset to base address
+;        2:  base address
+;      3-6:  increment x,y,z
+; examples:
+;          dw moveXYZ, 0       , scene, #0001,#fffa,#fff8                 ; move scene
+;          dw moveXYZ, mobdef.posx, mobStat, #0000, #0000, #0001          ; move object mobStat in position X
+
+        MACRO    mAniMoveXYZ _adr,_off,_sx,_sy,_sz
+         dw      animate.moveXYZ
+         dw      _adr+_off,_sx,_sy,_sz
+        ENDM
+
+; same as above, yet with fps considered
+        MACRO    mAniMoveXYZf _adr,_off,_sx,_sy,_sz
+         dw      animate.moveXYZf
+         dw      _adr+_off,_sx,_sy,_sz
+        ENDM
+
+; sort z-pos for MOB-objects in draw exec list
+        MACRO    mSort num
+         dw      bsort, num
+        ENDM 
+
+        MACRO   cnmLightPos x,z
+          ld      hl,x
+          ld      (light.posx),hl
+          ld      hl,z
+          ld      (light.posz),hl
+        ENDM
+
+        MACRO   cnmLightMode mode
+          ld      a,mode
+          ld      (light.mode),a
+        ENDM
+
+        MACRO   cnmLightBright br,cr
+          ld      a,br
+          ld      (rotoid.light.bright),a
+          ld      a,cr
+          ld      (rotoid.light.contrs),a
+        ENDM
+
+        MACRO   cnmLightShade val
+          ld    a,val
+          ld    (rotoid.light.shade),a
+        ENDM
+
+        MACRO   cnmScreenplayEnable
+          ld    a,#37                 ; scf
+          ld    (rotoid.run.scene),a
+        ENDM
+
+        MACRO   cnmScreenplayDisable
+          ld    a,#a7                 ; and_a
+          ld    (rotoid.run.scene),a
+        ENDM
+
+        MACRO   cnmFocal val
+          ld    a,val
+          call  persp16b.init
+        ENDM
+
+; -- inc 8bit value by fraction
+; .binc:
+        STRUCT bytinc
+madr:   dw    0
+incr:   dw    0
+start:  db    0
+end:    db    0
+temp:   dw    0
+        ENDS
+
+;rectangle fill      
+        STRUCT rctf
+posx:   db     0         ; char
+posy:   db     0         ; pix
+wdth:   db     0         ; char
+hght:   db     0         ; pix
+fill:   db     0
+mode:   db     0         ; 0-1  00 - put, 01 - or, 10 - and, 11 xor
+                         ; 2    vram addr : 0=#4000, 1=#c000
+                         ; 3    rotate gfx: 0=don't, 1=rrc <fill> every next line
+                         ; 4    attributes
+        ENDS
+
+        STRUCT dstar
+seed1:   dw     0
+seed2:   dw     0
+count:   db     0         ; number of stars
+cltop:   db     0         ; clip top
+clbot:   db     0         ; clip bot
+clleft:  db     0         ;      left
+clright: db     0         ;      right
+        ENDS
+
+; command: .rotoid_one_hidden:
+; structure for animation of OBJects within MOB (e.g. rotoid as part of station)
+               STRUCT objani
+angle:         db    0
+amplitude:     db    0
+offset:        db    0
+speed:         db    0
+options:       db    0
+back_pos:      dw    0
+front_pos:     dw    0
+back_options:  dw    0
+front_options: dw    0
+               ENDS
+
+               MACRO  mAniRotoid angle,amplitude,offset,speed,options,object1,object2,ptroffset
+               db     angle,amplitude,offset,speed,options
+               dw     object1+ptroffset
+               dw     object2+ptroffset
+               dw     object1+objdef.options
+               dw     object2+objdef.options
+               ENDM
+
+; command: .loop
+               MACRO  mAniLoop _address, _offset, _loops, _increment
+               dw     animate.loop
+               dw     _address+_offset
+               dw     0
+               dw     _loops*_increment
+               dw     _increment
+               ENDM
+
+;command: animate.pal
+               STRUCT sympal
+pal_cnt:       db     0     ; frame counter to get next palette value
+pal_ptr:       dw     0     ; pointer to palette, #ff termination
+val_ptr:       dw     0     ; pointer to address where data are stored
+mode:          db     0     ; bit 7=0 - single byte, =1 - double byte stored to val_ptr
+                            ; bit 6=1 - do not repeat sequence
+                            ; bit 5=1 - #00 is endmark, otherwise #ff
+pal_cptr:      dw     0
+curr_cnt:      db     1
+               ENDS
+
+               MACRO  mAniPal palcnt,curcnt,mode,palptr,segptr,segno
+               db     palcnt
+               dw     palptr
+               dw     segptr+symobj.leff+segno*symobj
+               db     mode
+               dw     palptr
+               db     curcnt
+               ENDM
+
+; command: animate.sin
+; modify one byte based on sin table
+               STRUCT anicos
+angle:         db    0         ; starting angle
+amplitude:     db    0         ; sin amplitude
+offset:        db    0         ; sin offset
+speed:         db    0         ; increments
+options:       db    0         ; bit0 = 1, ignore FPS, increments based on "speed" only
+mod_ptr:       dw    0         ; modified address
+               ENDS
+
+               MACRO  mAniSin angle,amplitude,offset,speed,options,modptr,offsetptr
+               db     angle,amplitude,offset,speed,options
+               dw     modptr+offsetptr
+               ENDM
+
+               STRUCT link
+from_ptr:      dw     0
+to_ptr:        dw     0
+offset:        dw     0
+               ENDS
+
+; command: animate.link
+               MACRO mAniLink from,to,adr_offset,offset
+               dw    from+adr_offset                ; val=peek from_addr
+               dw    to+adr_offset                  ; to_addr
+               dw    offset                         ; poke to_addr,val+offset
+               ENDM
+
+; command: animate.linkxyz
+               STRUCT linkxyz
+from_ptr:      dw     0
+to_ptr:        dw     0
+offset_x:      dw     0
+offset_y:      dw     0
+offset_z:      dw     0
+               ENDS
+
+               MACRO  mAniLinkXYZ from, to, offset_x, offset_y, offset_z
+               dw    from + mobdef.posx
+               dw    to   + mobdef.posx
+               dw    offset_x
+               dw    offset_y
+               dw    offset_z
+               ENDM
+
+;--- set/unset objdef option bit to show/hide object
+               MACRO mObjHide _obj, _pos
+               dw    rotoid.animate.hide, _obj+_pos*objdef
+               ENDM
+
+               MACRO mObjShow _obj, _pos
+               dw    rotoid.animate.show, _obj+_pos*objdef
+               ENDM
+
+; command: saveHDI
+; save area of screen #4000 as hdi object
+
+; it is not possible to simply pass parametters from macro to Lua
+; workaround is to make define and get it from macro. it has to be _c VALed to get
+; correct value from sjasm interpretter. at the end all defines must be undefined.
+
+               MACRO  msaveHDI posx,posy,width,height,_addr
+
+               define ___t_ta  _addr
+               define ___t_wd  width
+               define ___t_hg  height
+
+               LUA    ALLPASS
+               wd = getdefine("___t_wd")
+               hg = getdefine("___t_hg")
+               ta = _c(sj.get_define("___t_ta"))
+
+               if ta>0 then
+                  tadr = ta
+               end
+
+               sj.insert_label("___t_tadr",tadr,false,true)
+               tadr = tadr+wd*hg+3
+               ENDLUA
+
+               undefine ___t_ta
+               undefine ___t_wd
+               undefine ___t_hg
+
+               ld     c,posx
+               ld     b,posy
+               ld     e,width
+               ld     d,height
+               ld     ix,@___t_tadr
+               call   saveHDI
+
+               display @___t_tadr  ; label generated from LUA
+               ENDM
+
+/*
+               MACRO  msaveHDI posx,posy,width,height,_addr
+
+               IF     _addr>0
+._saddr:       =      _addr
+               ENDIF
+
+               LUA    ALLPASS
+               print (sj.get_label("temp3k"))
+               ENDLUA
+
+               ld     c,posx
+               ld     b,posy
+               ld     e,width
+               ld     d,height
+               ld     ix,._saddr
+               call   saveHDI
+._saddr:       =      ._saddr + width*height+3
+               ENDM
+*/
+
+; command: saveHDIpage
+; save area of screen #c000 as hdi object
+
+               MACRO  msaveHDIpage posx,posy,width,height,_addr
+               IF     _addr>0
+._saddr:       =      _addr
+               ENDIF
+               ld     c,posx
+               ld     b,posy
+               ld     e,width
+               ld     d,height
+               ld     ix,._saddr
+               call   saveHDIpage
+._saddr:       =      ._saddr + width*height+3
+               ENDM

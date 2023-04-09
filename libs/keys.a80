@@ -1,0 +1,29 @@
+; (c) osg 2019-21 keyboard library
+; routine will scan keyboard port specified in KBD structure and will launch appropriate
+; subroutine assigned to each key of the row.
+; simple key debounce / autorepeat is implemented. Bit 1 = debounce on, 0 - debounce off
+
+        MODULE keys
+        DEFINE keys_version 2
+run:
+         ld     a,(ix+kbd.prev)         ; previous port value
+         and    (ix+kbd.dbnc)           ; debounce mask
+         ld     e,a
+         ld     a,(ix+kbd.port)
+         in     a,(#fe)
+         cpl
+         ld     (ix+kbd.prev),a
+         ld     d,a
+         xor    e
+         and    d
+         ld     b,5
+.lp:     rrca
+         jr     c,.r0
+         inc    ix
+         inc    ix
+         djnz   .lp
+         ret
+.r0:     ld     hl,(ix+kbd.r0) : jp (hl)
+
+         display "keys:",$-run
+        ENDMODULE

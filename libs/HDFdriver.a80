@@ -1,0 +1,1200 @@
+;*a
+
+font:      EQU    #6500
+spc:       EQU    0                    ; space between chars
+spy:       EQU    5                    ; space between lines
+;*s
+           org    #7c00
+
+tab:       ds     512
+bufer:     ds     512
+
+p:
+init:      di
+           ld     (spp),sp
+           ld     sp,#5fff
+           call   hidem
+
+           ld     ix,font
+           call   mktab
+           ld     a,6
+           ld     (font+#50),a
+           xor    a
+           ld     (pos),a
+           ld     (poy),a
+           ld     (pincc+1),a
+           inc    a
+           ld     (fade+1),a
+           ld     a,87
+           ld     (viewp+1),a
+           ld     a,7
+           ld     (outb+1),a
+           ei
+
+           call   flash
+           db     7,4,3,1,0,#ff
+
+           call   clss
+           call   flash
+           db     7,#ff
+
+           ld     hl,slide0
+           ld     (text),hl
+           call   pp
+           call   flash
+           db     7,4,3,1,0,#ff
+
+           call   clss
+           call   flash
+           db     7,#ff
+
+           ld     hl,slide1
+           ld     (text),hl
+           call   pp
+           call   cls
+           call   pic1
+           call   viewpp
+
+           ld     hl,slide2
+           ld     (text),hl
+           call   pp
+           call   cls
+           call   pic2
+           call   viewpp
+           ld     hl,slide3
+           ld     (text),hl
+           call   pp
+           call   cls
+           ld     hl,0
+           ld     (nldb),hl
+           ld     (nldb+1),hl
+           ld     (nrra),hl
+           ld     (nrra+1),hl
+           call   pic3
+           call   viewpp
+           call   clss
+rett:      call   unhdm
+           ld     sp,(spp)
+           ret
+
+hidem:     ld     a,81
+           out    (#fd),a
+           ld     hl,#8000
+           ld     de,#c000
+           ld     bc,#4000
+           ldir
+           ld     a,80
+           out    (#fd),a
+           ret
+
+unhdm:     ld     a,81
+           out    (#fd),a
+           ld     hl,#c000
+           ld     de,#8000
+           ld     bc,#4000
+           ldir
+           ld     a,80
+           out    (#fd),a
+           ret
+
+viewpp:    halt
+viewp:     ld     a,85
+           xor    #0a
+           ld     (viewp+1),a
+           out    (#fd),a
+outb:      ld     a,#00
+           out    (#fe),a
+           halt
+           call   fade
+           jp     nc,viewp
+           ret
+
+fade:      ld     a,#55
+           dec    a
+           ld     (fade+1),a
+           ret    nz
+           ld     a,1
+           ld     (fade+1),a
+
+attb:      ld     hl,atrtb
+           ld     a,(hl)
+           inc    hl
+
+           cp     #ff                  ; force wait
+           jr     nz,nwait
+           ld     a,(hl)
+           ld     (fade+1),a
+           inc    hl
+           ld     (attb+1),hl
+           ld     a,#32
+           ld     (nldb),a
+           ld     a,<outb1
+           ld     (nldb+1),a
+           ld     a,>outb1
+           ld     (nldb+2),a
+           ret
+
+nwait:     cp     #fe
+           jr     nz,nend
+           ld     hl,atrtb
+           ld     (attb+1),hl
+           ld     a,87
+           ld     (viewp+1),a
+           ld     a,80
+           out    (#fd),a
+           call   clss
+           ld     a,#32
+           ld     (nldb),a
+outb1:     EQU    outb+1
+           ld     a,<outb1
+           ld     (nldb+1),a
+           ld     a,>outb1
+           ld     (nldb+2),a
+           ld     a,7
+           ld     (outb+1),a
+           scf
+           ret
+
+nend:      ld     (attb+1),hl
+           ld     (nspp+1),sp
+           ld     sp,#db00
+           ld     h,a
+nrra:      rra
+           rra
+           rra
+           and    7
+nldb:      ld     (outb+1),a
+           ld     l,h
+           ld     b,24
+phl2:      dw     #e5e5,#e5e5,#e5e5
+
+           dw     #e5e5,#e5e5,#e5e5
+
+           dw     #e5e5,#e5e5
+           djnz   phl2
+nspp:      ld     sp,#5555
+           and    a
+           ret
+
+pp:        halt
+           ld     hl,#5800
+           ld     de,#5801
+           ld     bc,767
+pincc:     ld     (hl),0
+           ldir
+           ld     a,(pincc+1)
+           inc    a
+           cp     8
+           jr     nz,picnt
+           ld     a,7
+picnt:     ld     (pincc+1),a
+           halt
+           call   ini
+           jr     nz,chkspc
+           xor    a
+           ld     (pincc+1),a
+           ret
+
+chkspc:    ld     bc,#7ffe
+           in     a,(c)
+           rra
+           jp     c,pp
+           ret
+
+cls:       call   flash
+           db     15,23,31,39,47,55
+
+           db     63,#ff
+clss:      ld     hl,#4000
+           ld     de,#4001
+           ld     bc,6143
+           ld     (hl),l
+           ldir
+           ret
+
+ini:       ld     hl,(text)
+inic:      ld     a,(hl)
+           inc    hl
+           ld     (text),hl
+           and    a
+           ret    z
+           cp     at
+           jr     nz,nat
+           and    a
+           ld     a,(hl)
+           ld     (pos),a
+           inc    hl
+           ld     a,(hl)
+           ld     (poy),a
+           inc    hl
+           ld     (text),hl
+           ret
+
+nat:       cp     wt
+           jr     nz,nwt
+
+           ld     b,(hl)
+wlop:      halt
+           djnz   wlop
+           inc    hl
+           ld     (text),hl
+           and    a
+           ret
+
+nwt:       cp     lf
+           jp     z,nextl
+
+           ld     l,a
+           ld     h,0
+           add    hl,hl
+           ex     de,hl
+           ld     hl,tab
+           add    hl,de
+           ld     c,(hl)
+           inc    hl
+           ld     b,(hl)               ; bc = address of char
+           ld     a,c
+           or     b
+           ret    z
+           ld     hl,font+16
+           add    hl,de
+           ld     e,(hl)               ; a = width
+           ld     a,e
+           ld     (wdth+1),a
+           ld     a,(pos)
+           add    a,e
+           jr     z,repr
+           jr     nc,bord              ; test of border
+repr:      call   nextl
+
+bord:      ld     l,c
+           ld     h,b
+           ld     de,bufer
+;       ld   c,(ix+15)           high***reserved words***
+           ld     c,(ix+15)            ; hig_
+blp2:      ld     b,(ix+11)            ; width (bytes)
+blp:       ld     a,(hl)
+           ld     (de),a
+           inc    hl
+           inc    de
+           djnz   blp
+           xor    a
+           ld     (de),a
+           inc    de
+           dec    c
+           jr     nz,blp2
+
+rotbf:     ld     a,(pos)
+           and    7
+           jr     z,view
+
+rlp3:      ld     hl,bufer
+           ld     c,(ix+15)
+rlp2:      ld     b,(ix+11)
+           inc    b
+           and    a
+rlp:       rr     (hl)
+           inc    hl
+           djnz   rlp
+           dec    c
+           jr     nz,rlp2
+           dec    a
+           jr     nz,rlp3
+
+view:      ld     a,(pos)
+           ld     c,a
+           ld     a,(poy)
+           call   8880
+           ld     de,bufer
+
+           ld     c,(ix+15)
+vlp2:      push   hl
+           ld     b,(ix+11)
+           inc    b
+vlp1:      ld     a,(de)
+           or     (hl)
+           ld     (hl),a
+           inc    hl
+           inc    de
+           djnz   vlp1
+           pop    hl
+           call   vid
+           dec    c
+           jr     nz,vlp2
+
+           ld     a,(pos)
+wdth:      add    a,#55
+           add    a,spc
+           ld     (pos),a
+           call   z,nextl
+           ret
+
+mktab:     ld     de,font+16
+           ld     hl,tab
+           ld     bc,font+528
+           ld     yl,0
+
+tblp:      ld     a,(de)
+           and    a
+           jr     nz,avail             ; not available
+           ld     (hl),0
+           inc    hl
+           ld     (hl),0
+           inc    hl
+           jr     cont
+
+avail:     ld     (hl),c
+           inc    hl
+           ld     (hl),b
+           inc    hl
+           push   hl
+           ld     l,c
+           ld     h,b
+           ld     c,(ix+7)
+           ld     b,(ix+6)
+           add    hl,bc
+           ld     c,l
+           ld     b,h
+           pop    hl
+cont:      inc    de
+           inc    de
+           dec    yl
+           jr     nz,tblp
+           ld     yl,#3a
+           ret
+
+vid:       inc    h
+           ld     a,h
+           and    7
+           ret    nz
+           ld     a,l
+           add    a,32
+           ld     l,a
+           ret    c
+           ld     a,h
+           sub    8
+           ld     h,a
+           ret
+
+nextl:     xor    a
+           ld     (pos),a
+           ld     a,(poy)
+           add    a,(ix+15)
+           add    a,spy
+           ld     (poy),a
+           ret
+
+flash:     pop    hl                   ; colors on stack
+           ld     a,(hl)
+           inc    hl
+           cp     #ff
+           jr     nz,flc1
+           jp     (hl)                 ; navrat do rutiny
+
+flc1:      ld     (catr+1),a
+           rra
+           rra
+           rra
+           and    7
+           halt
+           out    (#fe),a
+           push   hl
+atrfl:     ld     (fspp+1),sp
+           ld     sp,#5b00
+catr:      ld     h,#55
+           ld     l,h
+           ld     b,24
+phl1:      dw     #e5e5,#e5e5,#e5e5
+
+           dw     #e5e5,#e5e5,#e5e5
+
+           dw     #e5e5,#e5e5
+           djnz   phl1
+fspp:      ld     sp,#5555
+           halt
+           jp     flash
+
+pc1l:      EQU    5502
+pc2l:      EQU    4643
+pc3l:      EQU    8564
+pic1:
+           ld     a,84
+           ld     hl,#c000
+           ld     de,#c000
+           ld     bc,pc1l
+           call   scld
+           call   scldd
+           ret
+pic2:
+           ld     a,83
+           ld     hl,#c000
+           ld     de,#c000
+           ld     bc,pc2l
+           call   scld
+           call   scldd
+           ret
+
+pic3:
+           ld     a,83
+           ld     hl,#c000+pc2l
+           ld     de,#c000
+           ld     bc,6144
+           call   scld
+           ld     bc,pc3l-6144
+           call   scld
+           call   scldd
+           ret
+
+scld:      out    (#fd),a
+           push   af
+           push   de
+           ld     de,#4000
+           push   bc
+           ldir
+           ld     a,87
+           out    (#fd),a
+           pop    bc
+           pop    de
+           push   hl
+           ld     hl,#4000
+           ldir
+           pop    hl
+           pop    af
+           ret
+
+scldd:     call   #c000
+           ld     a,87
+           out    (#fd),a
+           ld     hl,#db00             ; ldir druheho obrazku do vram
+           ld     de,#4000
+           ld     bc,6144
+           ldir
+           ld     hl,#5800
+           ld     de,#d800
+           ld     bc,768
+           ldir
+           ret
+
+
+at:        EQU    21
+lf:        EQU    10
+wt:        EQU    7
+text:      dw     0
+
+slide0:    db     at,0,64
+           db     #20,#55,#6e,#69
+           db     #76,#65,#72,#73
+           db     #65,#2e,#2e,#2e
+           db     wt,50
+           db     lf
+           db     #20,#20,#49,#6e
+           db     #66,#69,#6e,#69
+           db     #74,#65,#2e,#2e
+           db     #2e
+           db     wt,50
+           db     lf
+           db     #20,#20,#20,#55
+           db     #6e,#69,#6d,#61
+           db     #67,#69,#6e,#61
+           db     #62,#6c,#65,#2e
+           db     #2e
+           db     #2e
+           db     wt,100
+           nop
+
+slide1:    db     at,0,64
+           db     #53,#70,#61,#63
+           db     #65,#20,#65,#78
+           db     #70,#6c,#6f,#72
+           db     #61,#74,#69,#6f
+           db     #6e
+           db     lf
+           db     wt,16
+           db     #20,#70,#72,#6f
+           db     #62,#65,#20,#4a
+           db     #53,#48,#2d,#31
+           db     #30,#30,#2d,#44
+           db     #58
+           db     #34
+           db     lf
+           db     wt,16
+           db     #20,#20,#72,#65
+           db     #63,#6f,#72,#64
+           db     #65,#64,#20
+           db     #6f,#62,#73,#63
+           db     #75,#72,#65
+           db     lf
+           db     wt,16
+           db     #20,#20,#20,#75
+           db     #6e,#6b,#6e,#6f
+           db     #77,#6e
+           db     #20,#73,#69,#67
+           db     #6e,#61,#6c,#2e
+           db     #2e,#2e
+           db     wt,100
+           nop
+
+slide2:    db     at,0,64
+           db     #20,#4d,#65,#73
+           db     #73,#61,#67,#65
+           db     #20,#77,#61,#73
+           db     #20,#73,#65,#6e
+           db     #74
+           db     lf
+           db     wt,16
+           db     #20,#20,#74,#6f
+           db     #20,#47,#65,#6e
+           db     #65,#78,#20
+           db     #48,#2e,#51,#2e
+           db     wt,16
+           db     lf
+           db     #20,#20,#20,#46
+           db     #6f,#72,#20,#44
+           db     #2e,#45,#2e,#41
+           db     #2e,#20,#61,#6e
+           db     #61,#6c,#79,#73
+           db     #69,#73,#2e,#2e
+           db     #2e
+           db     wt,100
+           nop
+
+slide3:    db     at,0,64
+           db     #49,#74,#20,#77
+           db     #61,#73,#20,#77
+           db     #61,#72,#6e,#69
+           db     #6e
+           db     #67,#2e,#2e,#2e
+           db     wt,50
+           db     lf
+           db     #20,#54,#68,#65
+           db     #20,#77,#61,#72
+           db     #2e,#2e,#2e
+           db     wt,50
+           db     lf
+           db     #20
+           db     #20,#2e,#2e,#2e
+           db     #69,#73,#20,#61
+           db     #62,#6f
+           db     #75,#74,#20,#74
+           db     #6f,#20,#62,#65
+           db     #67,#69,#6e,#2e
+           db     #2e,#2e
+           db     wt,100
+           nop
+
+atrtb:     db     55,55,47,47
+           db     39,39,31,31,23,23
+
+           db     15,15,7,7
+           db     #ff,100
+           db     4,4,3,3,1,1
+
+           db     0,0
+           db     #fe
+
+spp:       dw     0
+pos:       db     0
+poy:       db     0
+k:
+
+
+;*a
+
+font:      EQU    #6500
+spc:       EQU    0                    ; space between chars
+spy:       EQU    5                    ; space between lines
+;*s
+           org    #7c00
+
+tab:       ds     512
+bufer:     ds     512
+
+p:
+init:      di
+           ld     (spp),sp
+           ld     sp,#5fff
+           call   hidem
+
+           ld     ix,font
+           call   mktab
+           ld     a,6
+           ld     (font+#50),a
+           xor    a
+           ld     (pos),a
+           ld     (poy),a
+           ld     (pincc+1),a
+           inc    a
+           ld     (fade+1),a
+           ld     a,87
+           ld     (viewp+1),a
+           ld     a,7
+           ld     (outb+1),a
+           ei
+
+           call   flash
+           db     7,4,3,1,0,#ff
+
+           call   clss
+           call   flash
+           db     7,#ff
+
+           ld     hl,slide0
+           ld     (text),hl
+           call   pp
+           call   flash
+           db     7,4,3,1,0,#ff
+
+           call   clss
+           call   flash
+           db     7,#ff
+
+           ld     hl,slide1
+           ld     (text),hl
+           call   pp
+           call   cls
+           call   pic1
+           call   viewpp
+
+           ld     hl,slide2
+           ld     (text),hl
+           call   pp
+           call   cls
+           call   pic2
+           call   viewpp
+           ld     hl,slide3
+           ld     (text),hl
+           call   pp
+           call   cls
+           ld     hl,0
+           ld     (nldb),hl
+           ld     (nldb+1),hl
+           ld     (nrra),hl
+           ld     (nrra+1),hl
+           call   pic3
+           call   viewpp
+           call   clss
+rett:      call   unhdm
+           ld     sp,(spp)
+           ret
+
+hidem:     ld     a,81
+           out    (#fd),a
+           ld     hl,#8000
+           ld     de,#c000
+           ld     bc,#4000
+           ldir
+           ld     a,80
+           out    (#fd),a
+           ret
+
+unhdm:     ld     a,81
+           out    (#fd),a
+           ld     hl,#c000
+           ld     de,#8000
+           ld     bc,#4000
+           ldir
+           ld     a,80
+           out    (#fd),a
+           ret
+
+viewpp:    halt
+viewp:     ld     a,85
+           xor    #0a
+           ld     (viewp+1),a
+           out    (#fd),a
+outb:      ld     a,#00
+           out    (#fe),a
+           halt
+           call   fade
+           jp     nc,viewp
+           ret
+
+fade:      ld     a,#55
+           dec    a
+           ld     (fade+1),a
+           ret    nz
+           ld     a,1
+           ld     (fade+1),a
+
+attb:      ld     hl,atrtb
+           ld     a,(hl)
+           inc    hl
+
+           cp     #ff                  ; force wait
+           jr     nz,nwait
+           ld     a,(hl)
+           ld     (fade+1),a
+           inc    hl
+           ld     (attb+1),hl
+           ld     a,#32
+           ld     (nldb),a
+           ld     a,<outb1
+           ld     (nldb+1),a
+           ld     a,>outb1
+           ld     (nldb+2),a
+           ret
+
+nwait:     cp     #fe
+           jr     nz,nend
+           ld     hl,atrtb
+           ld     (attb+1),hl
+           ld     a,87
+           ld     (viewp+1),a
+           ld     a,80
+           out    (#fd),a
+           call   clss
+           ld     a,#32
+           ld     (nldb),a
+outb1:     EQU    outb+1
+           ld     a,<outb1
+           ld     (nldb+1),a
+           ld     a,>outb1
+           ld     (nldb+2),a
+           ld     a,7
+           ld     (outb+1),a
+           scf
+           ret
+
+nend:      ld     (attb+1),hl
+           ld     (nspp+1),sp
+           ld     sp,#db00
+           ld     h,a
+nrra:      rra
+           rra
+           rra
+           and    7
+nldb:      ld     (outb+1),a
+           ld     l,h
+           ld     b,24
+phl2:      dw     #e5e5,#e5e5,#e5e5
+
+           dw     #e5e5,#e5e5,#e5e5
+
+           dw     #e5e5,#e5e5
+           djnz   phl2
+nspp:      ld     sp,#5555
+           and    a
+           ret
+
+pp:        halt
+           ld     hl,#5800
+           ld     de,#5801
+           ld     bc,767
+pincc:     ld     (hl),0
+           ldir
+           ld     a,(pincc+1)
+           inc    a
+           cp     8
+           jr     nz,picnt
+           ld     a,7
+picnt:     ld     (pincc+1),a
+           halt
+           call   ini
+           jr     nz,chkspc
+           xor    a
+           ld     (pincc+1),a
+           ret
+
+chkspc:    ld     bc,#7ffe
+           in     a,(c)
+           rra
+           jp     c,pp
+           ret
+
+cls:       call   flash
+           db     15,23,31,39,47,55
+
+           db     63,#ff
+clss:      ld     hl,#4000
+           ld     de,#4001
+           ld     bc,6143
+           ld     (hl),l
+           ldir
+           ret
+
+ini:       ld     hl,(text)
+inic:      ld     a,(hl)
+           inc    hl
+           ld     (text),hl
+           and    a
+           ret    z
+           cp     at
+           jr     nz,nat
+           and    a
+           ld     a,(hl)
+           ld     (pos),a
+           inc    hl
+           ld     a,(hl)
+           ld     (poy),a
+           inc    hl
+           ld     (text),hl
+           ret
+
+nat:       cp     wt
+           jr     nz,nwt
+
+           ld     b,(hl)
+wlop:      halt
+           djnz   wlop
+           inc    hl
+           ld     (text),hl
+           and    a
+           ret
+
+nwt:       cp     lf
+           jp     z,nextl
+
+           ld     l,a
+           ld     h,0
+           add    hl,hl
+           ex     de,hl
+           ld     hl,tab
+           add    hl,de
+           ld     c,(hl)
+           inc    hl
+           ld     b,(hl)               ; bc = address of char
+           ld     a,c
+           or     b
+           ret    z
+           ld     hl,font+16
+           add    hl,de
+           ld     e,(hl)               ; a = width
+           ld     a,e
+           ld     (wdth+1),a
+           ld     a,(pos)
+           add    a,e
+           jr     z,repr
+           jr     nc,bord              ; test of border
+repr:      call   nextl
+
+bord:      ld     l,c
+           ld     h,b
+           ld     de,bufer
+;       ld   c,(ix+15)           high***reserved words***
+           ld     c,(ix+15)            ; hig_
+blp2:      ld     b,(ix+11)            ; width (bytes)
+blp:       ld     a,(hl)
+           ld     (de),a
+           inc    hl
+           inc    de
+           djnz   blp
+           xor    a
+           ld     (de),a
+           inc    de
+           dec    c
+           jr     nz,blp2
+
+rotbf:     ld     a,(pos)
+           and    7
+           jr     z,view
+
+rlp3:      ld     hl,bufer
+           ld     c,(ix+15)
+rlp2:      ld     b,(ix+11)
+           inc    b
+           and    a
+rlp:       rr     (hl)
+           inc    hl
+           djnz   rlp
+           dec    c
+           jr     nz,rlp2
+           dec    a
+           jr     nz,rlp3
+
+view:      ld     a,(pos)
+           ld     c,a
+           ld     a,(poy)
+           call   8880
+           ld     de,bufer
+
+           ld     c,(ix+15)
+vlp2:      push   hl
+           ld     b,(ix+11)
+           inc    b
+vlp1:      ld     a,(de)
+           or     (hl)
+           ld     (hl),a
+           inc    hl
+           inc    de
+           djnz   vlp1
+           pop    hl
+           call   vid
+           dec    c
+           jr     nz,vlp2
+
+           ld     a,(pos)
+wdth:      add    a,#55
+           add    a,spc
+           ld     (pos),a
+           call   z,nextl
+           ret
+
+mktab:     ld     de,font+16
+           ld     hl,tab
+           ld     bc,font+528
+           ld     yl,0
+
+tblp:      ld     a,(de)
+           and    a
+           jr     nz,avail             ; not available
+           ld     (hl),0
+           inc    hl
+           ld     (hl),0
+           inc    hl
+           jr     cont
+
+avail:     ld     (hl),c
+           inc    hl
+           ld     (hl),b
+           inc    hl
+           push   hl
+           ld     l,c
+           ld     h,b
+           ld     c,(ix+7)
+           ld     b,(ix+6)
+           add    hl,bc
+           ld     c,l
+           ld     b,h
+           pop    hl
+cont:      inc    de
+           inc    de
+           dec    yl
+           jr     nz,tblp
+           ld     yl,#3a
+           ret
+
+vid:       inc    h
+           ld     a,h
+           and    7
+           ret    nz
+           ld     a,l
+           add    a,32
+           ld     l,a
+           ret    c
+           ld     a,h
+           sub    8
+           ld     h,a
+           ret
+
+nextl:     xor    a
+           ld     (pos),a
+           ld     a,(poy)
+           add    a,(ix+15)
+           add    a,spy
+           ld     (poy),a
+           ret
+
+flash:     pop    hl                   ; colors on stack
+           ld     a,(hl)
+           inc    hl
+           cp     #ff
+           jr     nz,flc1
+           jp     (hl)                 ; navrat do rutiny
+
+flc1:      ld     (catr+1),a
+           rra
+           rra
+           rra
+           and    7
+           halt
+           out    (#fe),a
+           push   hl
+atrfl:     ld     (fspp+1),sp
+           ld     sp,#5b00
+catr:      ld     h,#55
+           ld     l,h
+           ld     b,24
+phl1:      dw     #e5e5,#e5e5,#e5e5
+
+           dw     #e5e5,#e5e5,#e5e5
+
+           dw     #e5e5,#e5e5
+           djnz   phl1
+fspp:      ld     sp,#5555
+           halt
+           jp     flash
+
+pc1l:      EQU    5502
+pc2l:      EQU    4643
+pc3l:      EQU    8564
+pic1:
+           ld     a,84
+           ld     hl,#c000
+           ld     de,#c000
+           ld     bc,pc1l
+           call   scld
+           call   scldd
+           ret
+pic2:
+           ld     a,83
+           ld     hl,#c000
+           ld     de,#c000
+           ld     bc,pc2l
+           call   scld
+           call   scldd
+           ret
+
+pic3:
+           ld     a,83
+           ld     hl,#c000+pc2l
+           ld     de,#c000
+           ld     bc,6144
+           call   scld
+           ld     bc,pc3l-6144
+           call   scld
+           call   scldd
+           ret
+
+scld:      out    (#fd),a
+           push   af
+           push   de
+           ld     de,#4000
+           push   bc
+           ldir
+           ld     a,87
+           out    (#fd),a
+           pop    bc
+           pop    de
+           push   hl
+           ld     hl,#4000
+           ldir
+           pop    hl
+           pop    af
+           ret
+
+scldd:     call   #c000
+           ld     a,87
+           out    (#fd),a
+           ld     hl,#db00             ; ldir druheho obrazku do vram
+           ld     de,#4000
+           ld     bc,6144
+           ldir
+           ld     hl,#5800
+           ld     de,#d800
+           ld     bc,768
+           ldir
+           ret
+
+
+at:        EQU    21
+lf:        EQU    10
+wt:        EQU    7
+text:      dw     0
+
+slide0:    db     at,0,64
+           db     #20,#55,#6e,#69
+           db     #76,#65,#72,#73
+           db     #65,#2e,#2e,#2e
+           db     wt,50
+           db     lf
+           db     #20,#20,#49,#6e
+           db     #66,#69,#6e,#69
+           db     #74,#65,#2e,#2e
+           db     #2e
+           db     wt,50
+           db     lf
+           db     #20,#20,#20,#55
+           db     #6e,#69,#6d,#61
+           db     #67,#69,#6e,#61
+           db     #62,#6c,#65,#2e
+           db     #2e
+           db     #2e
+           db     wt,100
+           nop
+
+slide1:    db     at,0,64
+           db     #53,#70,#61,#63
+           db     #65,#20,#65,#78
+           db     #70,#6c,#6f,#72
+           db     #61,#74,#69,#6f
+           db     #6e
+           db     lf
+           db     wt,16
+           db     #20,#70,#72,#6f
+           db     #62,#65,#20,#4a
+           db     #53,#48,#2d,#31
+           db     #30,#30,#2d,#44
+           db     #58
+           db     #34
+           db     lf
+           db     wt,16
+           db     #20,#20,#72,#65
+           db     #63,#6f,#72,#64
+           db     #65,#64,#20
+           db     #6f,#62,#73,#63
+           db     #75,#72,#65
+           db     lf
+           db     wt,16
+           db     #20,#20,#20,#75
+           db     #6e,#6b,#6e,#6f
+           db     #77,#6e
+           db     #20,#73,#69,#67
+           db     #6e,#61,#6c,#2e
+           db     #2e,#2e
+           db     wt,100
+           nop
+
+slide2:    db     at,0,64
+           db     #20,#4d,#65,#73
+           db     #73,#61,#67,#65
+           db     #20,#77,#61,#73
+           db     #20,#73,#65,#6e
+           db     #74
+           db     lf
+           db     wt,16
+           db     #20,#20,#74,#6f
+           db     #20,#47,#65,#6e
+           db     #65,#78,#20
+           db     #48,#2e,#51,#2e
+           db     wt,16
+           db     lf
+           db     #20,#20,#20,#46
+           db     #6f,#72,#20,#44
+           db     #2e,#45,#2e,#41
+           db     #2e,#20,#61,#6e
+           db     #61,#6c,#79,#73
+           db     #69,#73,#2e,#2e
+           db     #2e
+           db     wt,100
+           nop
+
+slide3:    db     at,0,64
+           db     #49,#74,#20,#77
+           db     #61,#73,#20,#77
+           db     #61,#72,#6e,#69
+           db     #6e
+           db     #67,#2e,#2e,#2e
+           db     wt,50
+           db     lf
+           db     #20,#54,#68,#65
+           db     #20,#77,#61,#72
+           db     #2e,#2e,#2e
+           db     wt,50
+           db     lf
+           db     #20
+           db     #20,#2e,#2e,#2e
+           db     #69,#73,#20,#61
+           db     #62,#6f
+           db     #75,#74,#20,#74
+           db     #6f,#20,#62,#65
+           db     #67,#69,#6e,#2e
+           db     #2e,#2e
+           db     wt,100
+           nop
+
+atrtb:     db     55,55,47,47
+           db     39,39,31,31,23,23
+
+           db     15,15,7,7
+           db     #ff,100
+           db     4,4,3,3,1,1
+
+           db     0,0
+           db     #fe
+
+spp:       dw     0
+pos:       db     0
+poy:       db     0
+k:
+
+

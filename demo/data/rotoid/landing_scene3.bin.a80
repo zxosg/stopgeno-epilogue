@@ -1,0 +1,95 @@
+; --------------------------------
+;  input file: landing_scene3.bin
+;      lenght: 90
+; symbol file: q:\Development\Dev-ZX\_Kernel\main.sym
+; 30 Mar 2020 20:23:30
+	ld  hl,._scene_data
+	ld  de,scene
+	ld  bc,sceneSetup.len
+	ldir
+	ld   de,rotoid.gfxSun
+	ld   c,10
+	ldir
+	ld   de,rotoid.gfxPlanet11
+	ld   c,10
+	ldir
+	ld   de,rotoid.gfxPlanet12
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobLanding
+	ld   c,10
+	ldir
+	jp   ._cont_setup
+._scene_data:
+
+; scene:
+	dw   #0000	;.posx:
+	dw   #0000	;.posy:
+	dw   #0000	;.posz:
+	dw   #0100	;.far:
+	dw   #0010	;.fade:
+
+; light:
+	dw   #D000	;.posx:
+	dw   #0100	;.posz:
+	db  #F2	;.bright:
+	db  #EE	;.contrs:
+	db  #18	;.angle:
+	db  #F2	;.leff:
+	db  #05	;.reff:
+	db  #03	;.shade:
+	db  #00	;.mode:
+
+; screen:
+	dw   #006B	;.posx:
+	dw   #0000	;.posy:
+	db  #00	;.cltop:
+	db  #A7	;.clbot:
+	db  #06	;.color:
+
+; currObj:
+	dw   #E036	;.ptr:
+	db  #27	;.angle:
+	db  #EE	;.ldata:
+	dw   #011A	;.posx16:
+
+; obj_1:
+;	dw   rotoid.drawMobHDI	;#A883	;.drwexe:
+;	dw   rotoid.gfxSun	;#E05B	;.mobptr:
+	dw   _asun              ;temp3k	;#5B00	;.datptr:
+	db  #00	;.par1:
+	db  #00	;.par2:
+	dw   #00EA	;.posx:
+	dw   #0070	;.posy:
+	dw   #0000	;.posz:
+
+; obj_2:
+;	dw   rotoid.drawMobHDI	;#A883	;.drwexe:
+;	dw   rotoid.gfxPlanet11	;#E065	;.mobptr:
+	dw   _apl1              ;#5BB7	;.datptr:
+	db  #00	;.par1:
+	db  #00	;.par2:
+	dw   #0000-0*8	;.posx:
+	dw   #0008	;.posy:
+	dw   #0000	;.posz:
+
+; obj_3:
+;	dw   rotoid.drawMobHDI	;#A883	;.drwexe:
+;	dw   rotoid.gfxPlanet12	;#E06F	;.mobptr:
+	dw   _apl2              ;#5f63	;.datptr:
+	db  #00	;.par1:
+	db  #00	;.par2:
+	dw   #0000-0*8	;.posx:
+	dw   #0048	;.posy:
+	dw   #0000	;.posz:
+
+; obj_4:
+;	dw   rotoid.drawMultiObject	;#9B4A	;.drwexe:
+;	dw   rotoid.mobLanding	;#E051	;.mobptr:
+	dw   rotoid.objLanding	;#E004	;.datptr:
+	db  #7F	;.par1:
+	db  #A7	;.par2:
+	dw   #0089	;.posx:
+	dw   #0081	;.posy:
+	dw   #0000	;.posz:
+._cont_setup:

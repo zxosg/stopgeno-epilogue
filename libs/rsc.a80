@@ -1,0 +1,221 @@
+        MODULE  rsc
+
+        MACRO    rscLoad _rno, _rtb
+         ld      a,_rno
+         ld      de,_rtb
+         call    rsc.load
+        ENDM
+
+        MACRO    rscUnpack _rno, _rtb
+         ld      a,_rno
+         ld      de,_rtb
+         call    rsc.unpack
+        ENDM
+        
+        MACRO    rscUnpackTMP _rno, _rtb
+         ld      a,_rno
+         ld      de,_rtb
+         call    rsc.unpacktmp
+        ENDM
+
+        MACRO    rscRun _rno, _rtb
+         ld      a,_rno
+         ld      de,_rtb
+         call    rsc.run
+        ENDM
+
+        MACRO    rscRunPg _rno, _rtb
+         ld      a,_rno
+         ld      de,_rtb
+         call    rsc.runPg
+        ENDM
+
+        MACRO    rscRunIX _rno, _rtb, _rix
+         ld      a,_rno
+         ld      de,_rtb
+         ld      hl,_rix
+         call    rsc.runhl2ix
+        ENDM
+
+        MACRO    rscRunIXPg _rno, _rtb, _rix
+         ld      a,_rno
+         ld      de,_rtb
+         ld      hl,_rix
+         call    rsc.runhl2ixPg
+        ENDM
+
+        STRUCT  rscb    ; resource block
+spg:    db      0       ; source page
+dpg:    db      0       ; destination page
+src:    dw      0       ; source data
+len:    dw      0       ; data len
+dst:    dw      0       ; destination data / parametter block for executables
+run:    dw      0       ; execution address
+        ENDS
+
+;resource run /in place/. Action: page-in memory bank with resource and call run address
+;"dst" is loaded to IX - could be used to pass data to executable. (or via stack)
+run:    call    getptr
+        ld      a,(ix+rscb.spg)
+        ld      de,(ix+rscb.dst)
+        ld      hl,(ix+rscb.run)
+        ld      ix,de
+        page_a
+        jp      (hl)
+
+; run from page, ret to page
+runPg:  call    getptr
+        ld      a,(@page)
+        ld      (.page+1),a
+        ld      hl,.ret
+        push    hl
+        ld      a,(ix+rscb.spg)
+        ld      de,(ix+rscb.dst)
+        ld      hl,(ix+rscb.run)
+        ld      ix,de
+        page_a
+        jp      (hl)
+.ret:   push    af
+.page:  ld      a,#55
+        page_a
+        pop     af
+        ret
+        
+runhl2ix:
+        push    hl
+        call    getptr
+;--
+        ld      a,(@ivram)
+        or      (ix+rscb.spg)
+;---
+;        ld      a,(ix+rscb.spg)
+        ld      hl,(ix+rscb.run)
+        pop     ix
+        page_a
+        jp      (hl)
+
+; run from page, ret to page
+runhl2ixPg:
+        ld      (.popix+2),hl
+        call    getptr
+        ld      a,(@page)
+        ld      (.page+1),a
+        ld      hl,.ret
+        push    hl
+        ld      a,(ix+rscb.spg)
+        ld      hl,(ix+rscb.run)
+.popix: ld      ix,#5555
+        page_a
+        jp      (hl)
+.ret:   push    af
+.page:  ld      a,#55
+        page_a
+        pop     af
+        ret
+
+
+;load and run. Action: move resource to new location and run it.
+lrun:   call    load
+        ld      hl,(ix+rscb.run)
+        ld      a,(ix+rscb.dpg)
+        page_a
+        jp      (hl)
+
+;load resource. Action: move resource to new location.
+load:   call    getptr
+        ld      c,(ix+rscb.spg)
+        ld      b,(ix+rscb.dpg)
+        push    ix
+        push    bc
+        ld      hl,(ix+rscb.src)
+        ld      de,(ix+rscb.dst)
+        ld      bc,(ix+rscb.len)
+        pop     ix
+        call    mmu.copy
+        pop     ix
+        ret
+
+unpack: call    getptr
+        ld      de,(ix+rscb.dst)
+.dest:  ld      hl,(ix+rscb.src)
+
+;        ld      a,(ix+rscb.spg)      ; original
+
+        ld      a,(@page)             ; mod to maintain vram
+        and     8                     ;
+        or      a,(ix+rscb.spg)       ;
+
+        page_a
+;        ld      (@page),a
+;        ld      bc,#7ffd
+;        res     6,a
+;        out     (c),a
+        call    dzx7s
+
+        ld      a,(ix+rscb.dpg)
+        page_a
+;        ld      (@page),a
+;        ld      bc,#7ffd
+;        res     6,a
+;        out     (c),a
+        ret
+
+/*
+unpack: call    getptr
+        ld      a,(ix+rscb.spg)
+        page_a
+        ld      hl,(ix+rscb.src)
+        ld      de,(ix+rscb.dst)
+        call    dzx7s
+        ld      a,(ix+rscb.dpg)
+        page_a
+        ret        
+*/
+unpacktmp:
+        call    getptr
+        ld      a,(ix+rscb.dpg)       ; destination page is set
+        page_a
+        ld      hl,(ix+rscb.dst)      ; dst address serves as temp address of data in memory
+        ld      de,(ix+rscb.run)      ; run address is new destination for depacker
+        jp      dzx7s
+
+; input hl:address, bc=length/2
+reverse:
+        push    hl
+        add     hl,bc
+        ld      ix,hl
+        pop     hl
+        sra     b
+        rl      c
+.loop:  dec     ix
+        ld      e,(hl)
+        ld      d,(ix+0)
+        ld      (hl),d
+        ld      (ix+0),e
+        cpi
+        jp      pe,.loop
+        ret
+
+getptr: ld      c,rscb
+        call    smul
+        add     hl,de
+        push    hl
+        pop     ix
+        ret
+
+; smul - stupid multiplication
+; c-multiplicant, a-multiplier, hl-result
+smul:
+        ld      b,0
+        ld      h,b
+        ld      l,b
+.l1:    and     a
+        ret     z
+        add     hl,bc
+        dec     a
+        jr      .l1
+
+dzx7s:   ; _standard:
+        include "libs/dzx7_standard.asm"
+
+        ENDMODULE

@@ -1,0 +1,59 @@
+        MODULE egl
+; input - ix to itr data structure
+; output - a - actual value, NC-next iteration possible, CY-finished
+iterate:
+        ld     a,(ix+itr.ini)
+        and    a
+        jr     nz,.run
+        ld     (ix+itr.ini),1
+
+        ld     c,(ix+itr.beg)
+        ld     (ix+itr.val),c
+        ld     (ix+itr.str),0
+
+        ld     a,(ix+itr.end)
+        sub    c                         ; end-start
+        jp     nc,.pos
+        ld     (ix+itr.neg),1
+        neg
+.pos:   ld     h,a                       ; h=end-start, l=0, a=0
+        xor    a
+        ld     l,a
+        ld     c,(ix+itr.cnt)            ; c=number of iterations
+        call   @bzdiv1608
+
+        ld     a,(ix+itr.neg)
+        and    a
+        jr     z,.nxt
+         ld     c,l
+         ld     b,h
+
+         ld     hl,0
+         and    a
+         sbc    hl,bc
+
+.nxt:   ld_x_hl ix,itr.add
+        ld      a,(ix+itr.val)
+        ld_de_x ix,itr.adr
+        ld      (de),a
+        and     a
+        ret
+.run:
+        ld_hl_x ix,itr.add
+        ld      e,(ix+itr.str)
+        ld      d,(ix+itr.val)
+        add     hl,de
+        ld      a,(ix+itr.end)
+        cp      h
+        jr      z,.skp
+        ld      (ix+itr.str),l
+        ld      (ix+itr.val),h
+        ld      a,h
+.skp:   ld_de_x ix,itr.adr
+        ld      (de),a
+        ret
+.init:
+        ld      (ix+itr.ini),0
+        ld      (ix+itr.neg),0
+        jp      iterate
+        ENDMODULE

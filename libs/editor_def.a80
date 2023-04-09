@@ -1,0 +1,24 @@
+; ---- 8/3/2018 10:31:09 PM
+; ---- editor structures
+
+        STRUCT  edit
+items:  db      0          ; number of items for editing
+aton:   db      0          ; attr color cursor on
+atln:   db      0          ; attr color line
+defs:   dw      0          ; pointer to definitions (db AT_x, AY_y, dw: addr_manipulated)
+                           ; AT_y - 7th bit=1 indicates that data poits to word, 0=byte
+                           ; AT_y - 6th bit=1 data are read only 
+stor:   dw      0          ; memory to store data when saved
+text:   dw      0          ; pointer to text (dw: AT, text, 0 terminated)
+save:   dw      0          ; pointer to routine when fire is triggered
+optn:   db      %00011001  ; bit 0-4: debounce mask (up down allowed). 1=debounce (do not autorepeat)
+                           ; bit 6 - swap left/right with up/down (0=horizontal / 1=vertical menu)
+                           ; bit 7=1 - draw into 2 vrams  (or #80 to vram address) - planned
+usrrun: dw      dummy      ; call to user function
+usrini: dw      dummy      ; call to user init function
+step:   db      0
+page:   db      0          ; memory page for edited items
+curr:   db      0          ; current position
+
+        ENDS
+              

@@ -1,0 +1,150 @@
+           MODULE hdf
+
+at:        EQU    22
+lf:        EQU    10
+
+bufer:     = swap                  ;ds     #200
+
+init:      ld     hl,(ix+shdf.text)
+           ld     (ix+shdf.curtext),hl
+           ret
+
+runc:      ld     de,(ix+shdf.curtext)
+           ld     a,(de)
+           and    a
+           scf
+           ret    z
+
+           inc    de
+           ld     (ix+shdf.curtext),de
+           ld     hl,(ix+shdf.font)
+           ld     iy,hl
+
+           cp     at
+           jp     z,atpos
+
+1          cp     lf
+           jp     z,nextl
+
+           ld     bc,#210
+           add    hl,bc            ; base address of font bitmaps
+
+           ld     c,(iy+7)         ; length of one character
+           ld     b,(iy+6)
+
+           exx
+           ld     b,a              ; a=character from text
+           ld     c,0              ; c=character counter
+           exx
+           push   iy
+
+.wlp1:     ld     a,(iy+#10)       ; width of character
+           exx
+           ld     e,a
+           ld     a,c
+           inc    c
+           cp     b
+           ld     a,e
+           jr     z,2F
+           exx
+           and    a
+           jr     z,1F             ; 0=not used
+           add    hl,bc
+1          inc    iy
+           inc    iy
+           jr     .wlp1
+
+2          exx
+           pop    iy
+           and    a
+           ret    z                ; a=width of character, hl=bitmap address
+
+           ld     (wdth+1),a
+           add    a,(ix+shdf.posx)
+
+           jr     z,1F
+           jr     nc,.bfcopy         ; test of border
+1          call   nextl
+
+.bfcopy:   ld     de,bufer           ; copy bitmap to buffer
+           ld     c,(iy+15)            ; high
+.lp2:      ld     b,(iy+11)            ; width (bytes)
+.lp1:      ld     a,(hl)
+           ld     (de),a
+           inc    hl
+           inc    de
+           djnz   .lp1
+           xor    a                  ; add 1 byte space for rotation
+           ld     (de),a
+           inc    de
+           dec    c
+           jr     nz,.lp2
+
+.bfrol:    ld     a,(ix+shdf.posx)            ; rotate buffer according to position
+           and    7
+           jr     z,.bfview
+
+.rlp3:     ld     hl,bufer
+           ld     c,(iy+15)
+.rlp2:     ld     b,(iy+11)
+           inc    b
+           and    a
+.rlp1:     rr     (hl)
+           inc    hl
+           djnz   .rlp1
+           dec    c
+           jr     nz,.rlp2
+           dec    a
+           jr     nz,.rlp3
+
+.bfview:   ld     c,(ix+shdf.posx)
+           ld     b,(ix+shdf.posy)
+           ld     a,b
+           add    a,(iy+15)
+           cp     #c0
+           ccf
+           ret    c                           ; return if out of screen
+
+           call   PixXY2Adr
+
+           ld     de,bufer
+
+           ld     c,(iy+15)
+.vlp2:     push   hl
+           ld     b,(iy+11)
+           inc    b
+.vlp1:     ld     a,(de)
+           or     (hl)
+           ld     (hl),a
+           inc    hl
+           inc    de
+           djnz   .vlp1
+           pop    hl
+           call   vid
+           dec    c
+           jr     nz,.vlp2
+
+           ld     a,(ix+shdf.posx)
+           add    a,(ix+shdf.spcx)
+wdth:      add    a,#55
+           ld     (ix+shdf.posx),a
+           jr     nz,1F
+
+nextl:     ld     a,(ix+shdf.margin)
+           ld     (ix+shdf.posx),a
+           ld     a,(ix+shdf.posy)
+           add    a,(iy+15)
+           add    a,(ix+shdf.spcy)
+           ld     (ix+shdf.posy),a
+1          and    a
+           ret
+
+atpos:     ld     a,(de)
+           ld     (ix+shdf.posx),a
+           inc    de
+           ld     a,(de)
+           ld     (ix+shdf.posy),a
+           inc    de
+           ld     (ix+shdf.curtext),de
+           ret
+           ENDMODULE

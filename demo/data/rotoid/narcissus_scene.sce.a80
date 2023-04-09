@@ -1,0 +1,76 @@
+; --------------------------------
+;  input file: _narcissus_scene.sce
+;      lenght: 90
+; symbol file: _main_190810_141558.sym
+; 10 Aug 2019 21:08:34
+
+scene:
+.posx:	dw   #0000
+.posy:	dw   #0000
+.posz:	dw   #0000
+.far:	dw   #0100
+.fade:	dw   #0080
+
+light:
+.posx:	dw   #D000
+.posz:	dw   #0100
+.bright:	db  #03
+.contrs:	db  #0C
+.angle:	db  #18
+.leff:	db  #03
+.reff:	db  #F8
+.shade:	db  #07
+.mode:	db  #00
+
+screen:
+.posx:	dw   #007F
+.posy:	dw   #0040
+.cltop:	db  #10
+.clbot:	db  #A7
+.color:	db  #04
+
+currObj:
+.ptr:	dw   #9618
+.angle:	db  #1F
+.ldata:	db  #85
+.posx16:	dw   #0069
+
+obj_1:
+.drwexe:	dw   rotoid.drawHDI	;#B017
+.mobptr:	dw   rotoid.gfxCloudB	;#9CA2
+.datptr:	dw   temp3k	;#5B00
+.par1:	db  #00
+.par2:	db  #00
+.posx:	dw   #0080
+.posy:	dw   #0088
+.posz:	dw   #0780
+
+obj_2:
+.drwexe:	dw   rotoid.drawHDI	;#B017
+.mobptr:	dw   rotoid.gfxCloudL	;#9CAC
+.datptr:	dw   CloudL	;#5B87
+.par1:	db  #00
+.par2:	db  #00
+.posx:	dw   #0010
+.posy:	dw   #0020
+.posz:	dw   #0780
+
+obj_3:
+.drwexe:	dw   rotoid.drawHDI	;#B017
+.mobptr:	dw   rotoid.gfxCloudR	;#9CB6
+.datptr:	dw   CloudR	;#6092
+.par1:	db  #00
+.par2:	db  #00
+.posx:	dw   #00B0
+.posy:	dw   #0030
+.posz:	dw   #0780
+
+obj_4:
+.drwexe:	dw   rotoid.drawMultiObject	;#A4CD
+.mobptr:	dw   rotoid.mobNarcis2	;#9633
+.datptr:	dw   rotoid.objNarcis2	;#9618
+.par1:	db  #7F
+.par2:	db  #9F
+.posx:	dw   #FFB8
+.posy:	dw   #0062
+.posz:	dw   #004C

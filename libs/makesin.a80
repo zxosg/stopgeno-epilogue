@@ -1,0 +1,122 @@
+; sinus	maker. {C} Jordan of exodus
+; a: amplitude,	c: offset, hl: adr
+; WARNING!!
+;	org  xx00h
+        ALIGN #100
+mksnt:	EXX
+    	LD   C,A
+    	LD   B,01h
+    	LD   HL,SINTAB
+    	EXX
+    	LD   E,00h
+    	CALL H800E
+    	DEC  E
+H800E	CALL H8011
+H8011	LD   B,40h
+H8013	EXX
+    	LD   E,(HL)
+    	INC  L
+    	LD   D,(HL)
+    	LD   A,L
+    	ADD  A,B
+    	LD   L,A
+    	LD   A,C
+    	SRL  A
+    	SRL  E
+    	JR   NC,H8022
+    	ADD  A,C
+H8022	SRL  A
+    	SRL  E
+    	JR   NC,H8029
+    	ADD  A,C
+H8029	SRL  A
+    	SRL  E
+    	JR   NC,H8030
+    	ADD  A,C
+H8030	SRL  A
+    	SRL  E
+    	JR   NC,H8037
+    	ADD  A,C
+H8037	SRL  A
+    	SRL  E
+    	JR   NC,H803E
+    	ADD  A,C
+H803E	SRL  A
+    	SRL  E
+    	JR   NC,H8045
+    	ADD  A,C
+H8045	SRL  A
+    	SRL  E
+    	JR   NC,H804C
+    	ADD  A,C
+H804C	SRL  A
+    	SRL  E
+    	JR   NC,H8053
+    	ADD  A,C
+H8053	SRL  A
+    	SRL  D
+    	JR   NC,H805A
+    	ADD  A,C
+H805A	SRL  A
+    	SRL  D
+    	JR   NC,H8061
+    	ADD  A,C
+H8061	SRL  A
+    	SRL  D
+    	JR   NC,H8068
+    	ADD  A,C
+H8068	SRL  A
+    	ADC  A,D
+    	EXX
+    	XOR  E
+    	JP   P,H8071
+    	INC  A
+H8071	ADD  A,C
+    	LD   (HL),A
+    	INC  L
+    	DJNZ H8013
+    	EXX
+    	LD   A,B
+    	XOR  0FCh
+    	LD   B,A
+    	EXX
+    	RET
+  
+SINTAB:
+    	DB   00h,00h,32h,00h
+    	DB   64h,00h,97h,00h
+    	DB   0c9h,00h,0fbh,00h
+    	DB   2dh,01h
+    	DB   5eh,01h,90h,01h
+    	DB   0c1h,01h,0f2h,01h
+    	DB   22h,02h,53h,02h
+    	DB   82h,02h
+    	DB   0b2h,02h,0e1h,02h
+    	DB   10h,03h,3eh,03h
+    	DB   6ch,03h,99h,03h
+    	DB   0c5h,03h
+    	DB   0f1h,03h,1dh,04h
+    	DB   48h,04h,72h,04h
+    	DB   9bh,04h,0c4h,04h
+    	DB   0ech,04h
+    	DB   13h,05h,3ah,05h
+    	DB   5fh,05h,84h,05h
+    	DB   0a8h,05h,0cbh,05h
+    	DB   0edh,05h
+    	DB   0fh,06h,2fh,06h
+    	DB   4fh,06h,6dh,06h
+    	DB   8ah,06h,0a7h,06h
+    	DB   0c2h,06h
+    	DB   0ddh,06h,0f6h,06h
+    	DB   0eh,07h,25h,07h
+    	DB   3bh,07h,50h,07h
+    	DB   64h,07h
+    	DB   77h,07h,88h,07h
+    	DB   99h,07h,0a8h,07h
+    	DB   0b6h,07h,0c3h,07h
+    	DB   0ceh,07h
+    	DB   0d9h,07h,0e2h,07h
+    	DB   0eah,07h,0f1h,07h
+    	DB   0f6h,07h,0fah,07h
+    	DB   0feh,07h
+    	DB   0ffh,07h,0ffh,07h

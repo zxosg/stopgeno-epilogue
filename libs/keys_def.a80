@@ -1,0 +1,19 @@
+;-- 8/3/2018 10:24:20 PM
+; keyboard scan routine
+
+        STRUCT kbd
+port:   db     0       ; kbd hi-address port (254,253,251,247,239,223,191,127)
+dbnc:   db     0       ; 0-read as is, 1=debounce (do not autorepeat)
+r0:     dw     0       ; address of routine to call when key is pressed    
+r1:     dw     0            
+r2:     dw     0
+r3:     dw     0
+r4:     dw     0
+prev:   db     0
+        ENDS
+/*
+      0xfefe  SHIFT, Z, X, C, V            0xeffe  0, 9, 8, 7, 6
+      0xfdfe  A, S, D, F, G                0xdffe  P, O, I, U, Y
+      0xfbfe  Q, W, E, R, T                0xbffe  ENTER, L, K, J, H
+      0xf7fe  1, 2, 3, 4, 5                0x7ffe  SPACE, SYM SHFT, M, N, B
+*/

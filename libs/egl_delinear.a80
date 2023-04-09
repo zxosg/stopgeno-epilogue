@@ -1,0 +1,38 @@
+        MODULE  egl
+delinear:
+        ld       hl,#4000
+        call     .thrd
+        call     .thrd
+        jp       .thrd
+
+.thrd:
+        push     hl
+        ld       xh,32
+.l3:    push     hl
+        ld       de,@swap
+        push     hl,de
+        ld       bc,#20
+        ld       xl,64
+.l1:    ld       a,(hl)
+        ld       (de),a
+        inc      de
+        add      hl,bc
+        dec      xl
+        jr       nz,.l1
+        pop      de,hl
+        ld       b,64
+.l2:    ld       a,(de)
+        ld       (hl),a
+        inc      de
+        call     vid
+        djnz     .l2
+        pop      hl
+        inc      l
+        dec      xh
+        jr       nz,.l3
+        pop      hl
+        ld       a,h
+        add      a,8
+        ld       h,a
+        ret
+        ENDMODULE

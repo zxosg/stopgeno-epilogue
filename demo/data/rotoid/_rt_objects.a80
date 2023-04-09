@@ -1,0 +1,120 @@
+; rotoid objects (27.04.2019)
+;------------------------------------------------------------------------------
+_ob:
+; ---- primitives
+segCirc3f30:      mSegBall   #78,#3f,#30
+segCirc3f3f:      mSegBall   #78,#3f,#3f
+segCirc0f00:      mSegBall   #78,#0f,#00
+segCirc0700:      mSegBall   #78,#07,#00
+segCirc3030:      mSegBall   #78,#30,#30
+
+;segCirc3037:      mSegBall   #78,#30,#37
+;segCirc3730:      mSegBall   #78,#37,#30
+;segCirc3f3fr:     mSegBall   #06,#3f,#3f
+;segCirc3333r:     mSegBall   #10,#33,#33
+
+; ---
+segSun:           =       segCirc3f3f
+;segPlanet:        =       segCirc3730
+segPlanet:        =       segCirc0f00
+;segPlant2:        =       segCirc3037
+segPlant2:        =       segCirc0700
+
+objSun:           anmmac  segSun   , 0, 0, 0, 0, #04
+                  dw      0
+
+objPlant2:        anmmac  segPlant2, 0, 0, 0, 0, #00
+                  dw      0
+
+objPlanet:        objmac  segPlanet, 0, 0, 0, 0
+;                  objmac  segTile1 ,#08,0,-#40,#40
+                  dw      0
+
+mobSun:           mobmac  objSun   , #80+#10, 0,  0,  0, #80
+mobPlant2:        mobmac  objPlant2, #3f, 0, #0, #0, #100
+mobPlanet:        mobmac  objPlanet, #7f, 0, #0, #0, #30
+
+;---- disemgaged rocket
+segHead:          incbin   "demo/data/cats/kocka_ship2_inv_p1.bin"
+segBody:          incbin   "demo/data/cats/kocka_ship2_inv_p3.bin"
+objHead:          anmmac   segHead, 0, 0, 0, 0, 0
+                  mEnd
+objBody:          anmmac   segBody, 0 ,0 ,0, 0, 0
+                  mEnd
+mobHead:          mobmac   objHead, #7f, 0, 0, 0, #40
+mobBody:          mobmac   objBody, #7f, 0, 0, #50, #40
+
+;---- launchpad rocket
+segRocket:        incbin   "demo/data/cats/kocka_launch_rocket_4.bin"
+segFlame:         incbin   "demo/data/cats/kocka_launch_rocket_flame_2.bin"
+objRocket:        anmmac   segRocket, 0, 0, 0, 0, 0
+objFlame:         anmmac   segFlame,  0, 0, 0, #a2, 0
+;                  objptr
+                  objexe
+                   ld      a,r
+                   and     #3f
+                   add     a,#40
+;                   ld      a,(objFlame + objdef.scale)
+;                   xor     #80
+                   ld      (objFlame + objdef.scale),a
+                   ret
+                  mEnd
+
+mobRocket:        mobmac   objRocket, #7f, 0, #fff0, #e8, #30
+
+;---- cat towing vessel
+segCat1:          incbin   "demo/data/cats/kocka_ship6.bin"
+segCat2:          mSegBall #78,#07,#00
+segCat3:          mSegBall #78,#0d,#01
+
+objCat2:          anmmac   segCat2, 0, 0, 0, 0, 0
+                  mEnd
+mobCat2:          mobmac   objCat2, #20, 0, #00, 0, #00
+objCat3:          anmmac   segCat3, 0, 0, 0, 0, 0
+                  mEnd
+mobCat3:          mobmac   objCat3, #20, 0, #00, 0, #00
+
+
+objCat1:          anmmac  segCat1, 0, 0, 0, 0, 0
+                  objptr
+                  dw        animate.linkxyz, aniCat2
+                  dw        animate.linkxyz, aniCat3
+                  dw        animate.sin, aniCat2x
+                  dw        animate.sin, aniCat2y
+                  dw        animate.sin, aniCat3x
+                  dw        animate.sin, aniCat3y
+                  mEnd
+
+                  ;mAniSin angle,amplitude,offset,speed,options,modptr,offsetptr
+aniCat2x:         mAniSin #c0    ,#7f, #00, #02, #00, aniCat2, linkxyz.offset_y
+aniCat3x:         mAniSin #c0-#80,#7f, #00, #02, #00, aniCat3, linkxyz.offset_x
+;aniCat2y:         mAniSin #00    ,#7f, #20, #02, #00, aniCat2, linkxyz.offset_y
+;aniCat3y:         mAniSin #00-#80,#7f, #20, #02, #00, aniCat3, linkxyz.offset_y
+
+aniCat2y:         mAniSin #00    ,#18, #0c, #02, #00, aniCat2, linkxyz.offset_z
+aniCat3y:         mAniSin #00-#80,#18, #0c, #02, #00, aniCat3, linkxyz.offset_z
+
+aniCat2:          mAniLinkXYZ mobCat1,mobCat2,0, #20,#0
+aniCat3:          mAniLinkXYZ mobCat1,mobCat3,0, #20,#0
+
+mobCat1:          mobmac  objCat1, #7f, 0, 0, 0, #30
+
+objCatx:          anmmac  segCirc3f30, 0, 0, 0, 0, 0
+                  mEnd
+mobCatx:          mobmac  objCatx, #7f, 0, 0, 0, #30
+
+; --- cheese planet
+gfxPlanet:        machdi  tplanet, %00000100, 0, 8, #2f, #200
+gfxMouse:         machdi  tmouse , %00000100, 0, #3a+8,-#20, #00
+.erase:           erahdi  tmouse
+
+gfxAstrocat:      machdi  temp3k, %00000100, 0, #ffa0, #70, #200
+gfxTruck:         machdi  ttruck, %01110100, 1, #150, #250, #300
+;gfxTruck:         machdi  ttruck, %01110100, 1, #149, #257, #600
+
+; --- editor
+objEdit:          objmac  temp3k, 0, 0, 0, 0                                 ;objmac  workspace, 0, 0, 0, 0
+                  dw      0
+mobEdit:          mobmac  objEdit, 127, 48, 0, 0, 32
+
+                  display "Objects start     :",_ob," len:",$-_ob, " end:", $

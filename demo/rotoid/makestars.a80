@@ -1,0 +1,147 @@
+; speed up of plot routine 24.03.2023
+
+.erase: call    .init
+        ld      hl,.ers
+        ld      (.pmd+1),hl
+.del2:  ld      bc,#5555
+        call    .drw                    ; erase stars
+        jp      .pgr
+
+.init:  ld      a,(@page)
+        ld      (.pgr+1),a
+        and     8
+        ld      a,o5+8
+        jr      nz,.s1
+        ld      a,o7
+.s1:    page_a
+
+        ld      a,(ix+dstar.cltop)        ; call from main loop
+        ld      (.clt1+1),a
+        ld      (.clt2+1),a
+        ld      a,(ix+dstar.clbot)
+        ld      (.clb1+1),a
+        ld      (.clb2+1),a
+        ld      a,(ix+dstar.clleft)
+        ld      (.cll1+1),a
+        ld      (.cll2+1),a
+        ld      a,(ix+dstar.clright)
+        ld      (.clr1+1),a
+        ld      (.clr2+1),a
+        ld      a,(ix+dstar.count)
+        ld      (.drw+2),a
+        ld      hl,(ix+dstar.seed1)
+        ld      (.seed1+1),hl
+        ld      (.sd1+1),hl
+        ld      hl,(ix+dstar.seed2)
+        ld      (.seed2+1),hl
+        ld      (.sd2+1),hl
+        ret
+
+.draw:  call   .init
+        ld     hl,(scene.posx)
+        DUP    3
+          rl l : rl h
+        EDUP
+        xor    a
+        sub    h
+        ld     c,a
+;        ld     c,h
+
+        ld     hl,(scene.posy)
+        DUP    3
+          rl l : rl h
+        EDUP
+        xor    a
+        sub    h
+        ld     b,a
+;        ld     b,h
+
+.swap:  ld     hl,#5555
+        ld     (.del2+1),hl
+        ld     (.swap+1),bc
+
+.sd1:   ld     hl,#5555
+        ld     (.seed1+1),hl
+.sd2:   ld     hl,#5555
+        ld     (.seed2+1),hl
+        ld     hl,.plt
+        ld     (.pmd+1),hl
+        call   .drw
+.pgr:   ld     a,#55
+        page_a
+        ret
+
+.drw:   ld    xl,#55
+.seed1: ld    hl,#0000
+.seed2: ld    de,#0000
+.l1:
+        add   hl,de
+        ld    a,l                      ; e-x, a-y
+        add   a,c                      ; c=offx
+        ld    c,a
+        ld    a,e
+        add   a,b                      ; b=offy
+        ld    b,a
+        push  hl
+        push  de
+.pmd:   call  .plt
+        pop   hl
+        pop   de
+        dec   xl
+        jr    nz,.l1
+        ret
+
+.plt:
+        ld    a,b
+.clt1:  cp    #55
+        ret   c
+.clb1:  cp    #55
+        ret   nc
+        ld    a,c
+.cll1:  cp    #55
+        ret   c
+.clr1:  cp    #55
+        ret   nc
+        ld    h,high linetab
+        ld    l,b           ; l=y-pos
+        ld    a,(hl)        ; low addr from y
+        inc   h
+        ld    d,(hl)        ; vram high
+        inc   h
+        ld    l,c           ; e=x2
+        or    (hl)
+        ld    e,a           ; de=vram of x2
+        inc   h
+        ld    a,(hl)        ;7,4,7,4
+        inc   h
+        or    (hl)
+        cpl
+        ex    de,hl
+        or    (hl)
+        ld    (hl),a
+        ret
+
+.ers:                       ; screen clipping
+        ld    a,b
+.clt2:  cp    #55
+        ret   c
+.clb2:  cp    #55
+        ret   nc
+        ld    a,c
+.cll2:  cp    #55
+        ret   c
+.clr2:  cp    #55
+        ret   nc
+
+        ld    h,high linetab
+        ld    l,b           ; l=y-pos
+        ld    a,(hl)        ; low addr from y
+        inc   h
+        ld    d,(hl)        ; vram high
+        inc   h
+        ld    l,c           ; e=x2
+        or    (hl)
+        ld    e,a           ; de=vram of x2
+        xor   a
+        ld    (de),a
+        ret

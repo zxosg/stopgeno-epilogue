@@ -1,0 +1,82 @@
+; --------------------------------
+;  input file: pyramid_top.sce
+;      lenght: 76
+; symbol file: q:\Development\Dev-ZX\_Kernel\main.sym
+; 29 Sep 2019 12:32:17
+	ld  hl,._scene_data
+	ld  de,scene
+	ld  bc,sceneSetup.len
+	ldir
+	ld   de,rotoid.mobTiles1
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobTiles2
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobPyrtop
+	ld   c,10
+	ldir
+	jp   ._cont_setup
+._scene_data:
+
+; scene:
+	dw   #0032	;.posx:
+	dw   #008C	;.posy:
+	dw   #006D	;.posz:
+	dw   #0100	;.far:
+	dw   #00C2	;.fade:
+
+; light:
+	dw   #D000	;.posx:
+	dw   #0100	;.posz:
+	db  #00	;.bright:
+	db  #07	;.contrs:
+	db  #18	;.angle:
+	db  #00	;.leff:
+	db  #FA	;.reff:
+	db  #00	;.shade:
+	db  #00	;.mode:
+
+; screen:
+	dw   #007F	;.posx:
+	dw   #0040	;.posy:
+	db  #08	;.cltop:
+	db  #A0	;.clbot:
+	db  #04	;.color:
+
+; currObj:
+	dw   #93E0	;.ptr:
+	db  #20	;.angle:
+	db  #13	;.ldata:
+	dw   #0068	;.posx16:
+
+; obj_1:
+;	dw   rotoid.drawMultiObject	;#9C9A	;.drwexe:
+;	dw   rotoid.mobTiles1	;#949F	;.mobptr:
+	dw   rotoid.objTiles1	;#9439	;.datptr:
+	db  #7F	;.par1:
+	db  #A0	;.par2:
+	dw   #0200	;.posx:
+	dw   #0050	;.posy:
+	dw   #0100	;.posz:
+
+; obj_2:
+;	dw   rotoid.drawMultiObject	;#9C9A	;.drwexe:
+;	dw   rotoid.mobTiles2	;#94F6	;.mobptr:
+	dw   rotoid.objTiles2	;#94A9	;.datptr:
+	db  #7F	;.par1:
+	db  #A0	;.par2:
+	dw   #Fde0	;.posx: (fe00)
+	dw   #0100	;.posy:
+	dw   #0100	;.posz:
+
+; obj_3:
+;	dw   rotoid.drawMultiObject	;#9C9A	;.drwexe:
+;	dw   rotoid.mobPyrtop	;#93FB	;.mobptr:
+	dw   rotoid.objPyrtop	;#93AE	;.datptr:
+	db  #7F	;.par1:
+	db  #A0	;.par2:
+	dw   #0000	;.posx:
+	dw   #0000	;.posy:
+	dw   #0100	;.posz:
+._cont_setup:

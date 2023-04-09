@@ -1,0 +1,73 @@
+/* -- data structure
+        db      delay
+        db      count
+        dw      accel_temp
+        dw      accel_adder
+        db      speed_start
+        db      speed_end
+--- removed:
+        db      offset to base address
+*/
+.moveAccf:
+        ld      a,(@fps)
+        jr      1F
+
+.moveAcc:
+        ld      a,1
+1       ld      (fpstmp),a
+        pop     hl
+        pop     hl
+        neg
+;- delay
+        add     a,(hl)                     ; decrease counter of delay        inc     hl
+        jr      nc,1F                      ; nc=delay expired
+        ld      (hl),a                     ; c= delay more, store current counter
+        inc     hl                         ; count
+.s1:
+        ld      bc,7
+        add     hl,bc
+        push    hl
+        jp      @exeptr.loop               ; no action, return
+
+1       inc     hl
+        ld      a,(fpstmp)
+        neg
+;- counter
+        add     a,(hl)                     ; decrease counter of iterations
+        jr      nc,.s1
+        ld      (hl),a  : inc hl           ; store counter
+
+;- core
+        ld      (.tmp+2),hl                ; save temp address
+        ld      e,(hl)  : inc hl           ; temp
+        ld      d,(hl)  : inc hl           ;
+        ld      c,(hl)  : inc hl           ; add
+        ld      b,(hl)  : inc hl           ;
+        ex      de,hl
+        add     hl,bc
+        ex      de,hl
+        ld      c,(hl)  : inc hl           ; speed_start
+        ld      b,(hl)  : inc hl           ; speed_end
+        ld      a,e
+        add     a,a
+        ld      a,0
+        adc     a,d
+        add     a,c
+        cp      b
+        jr      z,1F
+.tmp:   ld      (#5555),de
+1       ld      e,a
+        add     a,a
+        sbc     a,a
+        ld      d,a                        ; de=signed adder
+
+        push    hl
+        ld      l,(ix+0)
+        ld      h,(ix+1)                   ; hl=current value
+        ld      a,(fpstmp)                 ; fps mod
+        ld      b,a
+1       add     hl,de                      ; de=increment
+        djnz    1B
+        ld      (ix+0),l                   ; save, exit
+        ld      (ix+1),h
+        jp      @exeptr.loop

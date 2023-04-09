@@ -1,0 +1,289 @@
+[Config]
+Compilator.SaveAll=0
+Compilator.Capture=0
+Compilator.CompileOnBackground=0
+Compilator.ProgSaveAll=0
+Compilator.ProgRunSelection=0
+Compilator.LogType=0
+Compilator.LogEncoding=0
+DefaultCP=0
+LogtoEnd=1
+DontOpen=0
+AbsolutePath=0
+FileFormat=0
+ProjectFilesOnly=0
+HTServer=localhost
+[Project tree]
+kernel
+	+Data
+		demo\vscroll\cats_titles.a80
+		demo\fzcommand.a80
+	+Tools
+		sym2asm_main.sym.rex
+		sym2asm.rex
+		rac.rex
+		copy_sym.rex
+		demo\data\rotoid\rsd.rex
+		C:\Users\janpa\OneDrive\Development\Dev-ZX\_Kernel\demo\texts.txt
+	+Main
+		main.a80
+		NotesToDo.txt
+		..\documentation\z80\z80opcod_notabs.txt
+		demo\data\rotoid\_rt_objects.a80
+		demo\data\rotoid\_rt_scenes.a80
+		demo\demo_txt.a80
+		demo\demo_dat.a80
+		demo\screenplay\demo_sync.a80
+		demo\vscroll\end_titles.a80
+	+Effects
+		demo\light\3dlight_exe.a80
+		demo\light\3dlight_def.a80
+		demo\lysa\lysa.a80
+		demo\bscroll\bscroll.a80
+		demo\chess\chess.a80
+		demo\plt\plt.a80
+		demo\rotoid\rotoid.a80
+		demo\rotoid\rotoid_def.a80
+		demo\rotoid\mobhdi.a80
+		demo\rotoid\red.a80
+		demo\rotoid\makestars.a80
+		demo\rotoid\anim_move.a80
+		demo\rotoid\anim_move_cycl.a80
+		D:\Users\osg\OneDrive\Development\Dev-ZX\_Kernel\demo\rotoid\anim_move_accel.a80
+		demo\rotoid\anim_move_cycl16.a80
+		demo\msx\smporn.a80
+		demo\msx\pt3extra.a80
+		demo\msx\pt3.a80
+		demo\vscroll\vscroll.a80
+	+Kernel
+		kernel\kern_exec.a80
+		kernel\kern_macros.a80
+		kernel\kern_def.a80
+		test\test_suite.a80
+	+Libs
+		libs\mmu.a80
+		libs\editor.a80
+		libs\editor_def.a80
+		libs\editor16b.a80
+		libs\keys.a80
+		libs\keys_def.a80
+		libs\vramlib.a80
+		libs\p3x.a80
+		libs\mc82.a80
+		libs\makesin.a80
+		libs\makeshp.a80
+		libs\delay.a80
+		libs\cls.a80
+		libs\fzx_drv_mod.a80
+		libs\hdf_drv.a80
+		libs\rsc.a80
+		libs\rsc_load.a80
+		libs\egl.a80
+		libs\egl_def.a80
+		libs\egl_vprint.a80
+		libs\egl_scroll.a80
+		libs\egl_linehv.a80
+		libs\egl_iterate.a80
+		libs\egl_draw.a80
+		libs\egl_delinear.a80
+		libs\egl_atrplay.a80
+		libs\egl_funscr.a80
+		libs\vram_fade.a80
+		demo\ayplay\ayplayPacked.a80
+		demo\ayplay\ayplay.a80
+		libs\osg_lualib.a80
+		libs\fzx_drv.a80
+		libs\dzx7_standard.asm
+		libs\next_test.a80
+[Open project files]
+0=demo\rotoid\anim_move.a80
+1=demo\demo_txt.a80
+2=libs\egl.a80
+3=libs\egl_def.a80
+4=libs\egl_delinear.a80
+5=libs\egl_draw.a80
+6=libs\egl_funscr.a80
+7=libs\fzx_drv_mod.a80
+8=kernel\kern_def.a80
+9=libs\mmu.a80
+10=demo\rotoid\mobhdi.a80
+11=demo\data\rotoid\_rt_scenes.a80
+12=demo\demo_dat.a80
+13=libs\osg_lualib.a80
+14=demo\vscroll\cats_titles.a80
+15=demo\rotoid\rotoid_def.a80
+16=libs\rsc.a80
+17=demo\vprint.a80
+18=libs\vramlib.a80
+19=libs\vram_fade.a80
+20=libs\fzx_drv_def.a80
+21=libs\egl_atrplay.a80
+22=..\documentation\z80\z80opcod_notabs.txt
+23=main.a80
+24=kernel\kern_macros.a80
+25=demo\rotoid\rotoid.a80
+26=demo\rotoid\red.a80
+27=libs\editor16b.a80
+28=kernel\kern_exec.a80
+29=libs\keys.a80
+30=libs\editor_def.a80
+31=libs\keys_def.a80
+32=demo\fzcommand.a80
+33=demo\data\rotoid\_rt_objects.a80
+34=demo\vscroll\vscroll.a80
+35=demo\fzblueprint.a80
+36=libs\egl_linehv.a80
+37=demo\screenplay\demo_sync.a80
+38=libs\rsc_load.a80
+[Selected Project Files]
+Main=main.a80
+Selected=main.a80
+[demo\rotoid\anim_move.a80]
+TopLine=1
+Caret=1,1
+[demo\demo_txt.a80]
+TopLine=1
+Caret=2,11
+[libs\egl.a80]
+TopLine=1
+Caret=1,12
+[libs\egl_def.a80]
+TopLine=62
+Caret=27,88
+[libs\egl_delinear.a80]
+TopLine=1
+Caret=1,1
+[libs\egl_draw.a80]
+TopLine=1
+Caret=1,1
+[libs\egl_funscr.a80]
+TopLine=1
+Caret=10,1
+[libs\fzx_drv_mod.a80]
+TopLine=114
+Caret=22,132
+[kernel\kern_def.a80]
+TopLine=10
+Caret=30,38
+[libs\mmu.a80]
+TopLine=1
+Caret=1,15
+[demo\rotoid\mobhdi.a80]
+TopLine=632
+Caret=8,667
+[demo\data\rotoid\_rt_scenes.a80]
+TopLine=295
+Caret=30,317
+[demo\demo_dat.a80]
+TopLine=410
+Caret=69,435
+[libs\osg_lualib.a80]
+TopLine=1
+Caret=28,15
+[demo\vscroll\cats_titles.a80]
+TopLine=1
+Caret=1,1
+[demo\rotoid\rotoid_def.a80]
+TopLine=1
+Caret=1,1
+[libs\rsc.a80]
+TopLine=97
+Caret=4,131
+[demo\vprint.a80]
+TopLine=36
+Caret=19,51
+[libs\vramlib.a80]
+TopLine=42
+Caret=6,32
+[libs\vram_fade.a80]
+TopLine=125
+Caret=2,157
+[libs\fzx_drv_def.a80]
+TopLine=1
+Caret=34,11
+[libs\egl_atrplay.a80]
+TopLine=301
+Caret=25,335
+[..\documentation\z80\z80opcod_notabs.txt]
+TopLine=416
+Caret=21,440
+[main.a80]
+TopLine=710
+Caret=35,483
+Mark1=1,631
+Mark2=32,586
+Mark3=10,797
+Mark4=1,111
+Mark5=1,509
+Mark6=10,312
+Mark7=1,119
+Mark8=10,306
+[kernel\kern_macros.a80]
+TopLine=206
+Caret=24,222
+[demo\rotoid\rotoid.a80]
+TopLine=172
+Caret=27,180
+Mark1=9,663
+Mark2=1,170
+Mark3=18,927
+Mark4=7,2200
+Mark5=8,1853
+Mark6=19,2308
+Mark7=1,1793
+Mark8=1,1704
+Mark9=9,575
+Mark10=4,3178
+Mark11=1,168
+Mark12=18,844
+Mark13=7,2098
+Mark14=8,1751
+Mark15=19,2206
+Mark16=1,1691
+Mark17=1,1602
+Mark18=4,3280
+Mark19=4,3180
+Mark20=4,3282
+[demo\rotoid\red.a80]
+TopLine=296
+Caret=19,322
+Mark1=1,454
+Mark2=1,97
+Mark3=47,577
+[libs\editor16b.a80]
+TopLine=350
+Caret=1,395
+[kernel\kern_exec.a80]
+TopLine=1
+Caret=1,24
+[libs\keys.a80]
+TopLine=1
+Caret=89,4
+[libs\editor_def.a80]
+TopLine=1
+Caret=1,11
+[libs\keys_def.a80]
+TopLine=1
+Caret=76,18
+[demo\fzcommand.a80]
+TopLine=1
+Caret=43,10
+[demo\data\rotoid\_rt_objects.a80]
+TopLine=3
+Caret=1,3
+BookMark3=57,116
+[demo\vscroll\vscroll.a80]
+TopLine=1
+Caret=1,1
+[demo\fzblueprint.a80]
+TopLine=1
+Caret=22,82
+[libs\egl_linehv.a80]
+TopLine=1
+Caret=1,1
+[demo\screenplay\demo_sync.a80]
+TopLine=1
+Caret=18,14
+[libs\rsc_load.a80]
+TopLine=62
+Caret=31,78

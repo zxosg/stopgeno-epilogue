@@ -1,0 +1,202 @@
+          MODULE mc82                                 
+data:           EQU          #a500                          
+vramport:       EQU          93
+borderCol:      EQU          0          ; default border color
+lineWait:       EQU          0          ; wait between lines (not used)
+frameWait:      EQU          7430      ; wait at the beginning
+mclHeight:      EQU          96         ; multicolor height
+attrs:          EQU          #d800      ; attrs
+
+         ;ALIGN  0x0100
+lnTab:   ; DS     mclHeight*2
+gfx:     DEFL   data
+         DUP    mclHeight
+         dw     gfx
+gfx:     DEFL   gfx+32
+         EDUP
+lnTabE:
+
+; user variables
+frameWaitVar:   dw     frameWait
+
+init:    call    mkphs
+         call    modRun
+         call    mkdata
+         call    clscr
+         ret
+
+run:     outp    1,1
+         ld      bc,(frameWaitVar)       ;wait loop
+         call    @Tdelay
+         outp    0,0
+         call    modRun
+         outp    3,3
+         call    chain
+         outp    2,2
+;         call    scrl
+         outp    0,0
+         ret
+
+clscr:   ld      a,o7
+         ld      b,#0f
+         call    .cls
+         ld      a,o5
+         ld      b,#0f
+                
+.cls:    page_a
+         ld      a,b
+         ld      hl,#c000
+         ld      d,h,e,l
+         inc     e
+         ld      bc,6144
+         ld      (hl),a
+         ldir
+         ret
+
+scrl:    ld      hl,data
+         ld      bc,-32
+         ld      (spp),sp
+         ld      sp,lnTabE
+         dup     mclHeight
+           push    hl
+           add     hl,bc
+         edup
+         ld      sp,(spp)
+         ld      hl,(scrl+1)
+         add     hl,bc
+;          inc hl
+         ld      (scrl+1),hl
+         ret
+
+
+modRun:  
+buff:    DEFL   lnTab
+dest1:   DEFL   chain.pops+s1                ; skip LD (xxx),sp; LD SP,
+dest2:   DEFL   chain.pops+s2
+         ld     de,#10
+         DUP    mclHeight
+                ;DISPLAY    dest1," ",dest2
+                ld     hl,(buff)
+                ld     (dest1),hl
+                add    hl,de
+                ld     (dest2),hl
+dest1:           DEFL   dest1+xsrclen
+dest2:           DEFL   dest2+xsrclen
+buff:            DEFL   buff+2
+         EDUP
+         ret
+         
+mkphs:   ld     de,chain.pops
+         ld     a,mclHeight
+mkpl1:          ld     hl,xsrc1
+                ld     bc,xsrclen
+                ldir
+                dec    a
+         jr     nz,mkpl1
+
+         ld     c,5
+         ldir                    ; ldir LD SP,(SPP): ret
+         
+         ld     ix,chain.pops
+         ld     hl,0             ; gfx
+         ld     de,#d810         ; attr
+         ld     yl,mclHeight
+         
+.loop:   ld     bc,#10
+         ld     (ix+s1),hl
+         ld     (ix+d1),de
+         add    hl,bc
+         push   de
+         ex     de,hl
+         add    hl,bc
+         ex     de,hl
+         ld     (ix+s2),hl
+         ld     (ix+d2),de
+         pop    de
+.vmod:   ld     a,vramport ; 87 | 93
+         xor    #0a
+         ld     (.vmod+1),a
+         ld     (ix+vr),a
+         ld     bc,xsrclen
+         add    ix,bc
+         
+         ld     a,yl
+         dec    a
+         and    3
+         jr     nz,.dlop
+         ld     bc,#20
+         ex     de,hl
+         add    hl,bc
+         ex     de,hl
+         
+.dlop:   dec    yl
+         jr     nz,.loop
+         ret     
+         
+xsrc1:   ld      sp,05555        ;data1
+         pop     af,bc,de,hl
+         exx
+         ex      af,af
+         pop     af,bc,de,hl
+xdes1:   ld      sp,55555        ;vram1
+         push    hl,de,bc,af
+         exx
+         ex      af,af
+         push    hl,de,bc,af
+xsrc2:   ld      sp,05555        ;data2
+         pop     af,bc,de,hl
+         exx
+         ex      af,af
+         pop     af,bc,de,hl
+xdes2:   ld      sp,55555        ;vram2
+         push    hl,de,bc,af
+         exx
+         ex      af,af
+         push    hl,de,bc,af
+
+;         ld      bc,0x7ffd
+xvrm:    ld      a,23            ; 31-8 or 21+8 
+;         out     (c),a
+         out     (#fd),a
+
+s1       DEFL    xsrc1-xsrc1+1
+s2       DEFL    xsrc2-xsrc1+1
+d1       DEFL    xdes1-xsrc1+1
+d2       DEFL    xdes2-xsrc1+1
+vr       DEFL    xvrm -xsrc1+1 
+
+xsrclen: EQU     $-xsrc1
+         
+         ld      sp,(spp)
+         ret
+         
+mkdata:  ld      hl,data
+         ld      xl,mclHeight/2
+         xor     a
+.l3:     ld      b,32
+.l1:     ld      (hl),a
+         inc     hl
+         djnz    .l1
+         ld      b,32
+         ex      af,af
+         dec     a
+.l2:     ld      (hl),a
+         inc     hl
+         djnz    .l2
+         inc     a
+         inc     a
+         and     63
+         dec     xl
+         jr      nz,.l3
+         ret
+     
+         
+; ---------- program vars ----------------
+spp:     dw      0
+
+; ---------- main multicolor routine -----
+chain:   ld      (spp),sp
+         ld      a,vramport xor #0a
+         out     (#fd),a
+.pops:   
+         ENDMODULE

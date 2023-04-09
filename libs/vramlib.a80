@@ -1,0 +1,264 @@
+vcpix:
+PixXY2Adr:
+; bc = xy
+; hl = addr, a=bit
+       ld   a,b
+       and  a
+       rra
+       scf
+       rra
+       and  a
+       rra
+       xor  b
+       and  0f8h
+       xor  b
+       ld   h,a
+       ld   a,c
+       rlca
+       rlca
+       rlca
+       xor  b
+       and  0c7h
+       xor  b
+       rlca
+       rlca
+       ld   l,a
+       ld   a,c
+       and  7
+       ret
+ 
+vcxpx:
+PixCY2Adr:
+;  b = y (pixel), c = x (char)
+; hl = addr
+       ld   a,b
+       and  a
+       rra
+       scf
+       rra
+       and  a
+       rra
+       xor  b
+       and  0f8h
+       xor  b
+       ld   h,a
+       ld   a,b
+       rlca
+       rlca
+       and  0e0h
+       or   c
+       ld   l,a
+       ret
+ 
+vctxt:
+PixCH2Adr:
+; bc = xy (char)
+; hl = addr
+       ld   a,b
+       and  018h
+       or   040h
+       ld   h,a
+       ld   a,b
+       and  7
+       rrca
+       rrca
+       rrca
+       add  a,c
+       ld   l,a
+       ret
+
+/*
+vcdcr:
+PixDwnChr:
+; hl = addr
+; hl = down char scr addr
+       ld   a,l
+       add  a,32
+       ld   l,a
+       ret  nc
+       ld   a,h
+       add  a,8
+       ld   h,a
+       ret
+ 
+vcucr:
+PixUppChr:
+; hl = addr
+; hl = upper char scr addr
+       ld   a,l
+       sub  32
+       ld   l,a
+       ret  nc
+       ld   a,h
+       sub  8
+       ld   h,a
+       ret
+ 
+vcncr:
+PixNxtChr:
+; hl = addr
+; hl = next char scr addr
+       rr   h
+       rr   h
+       rr   h
+       inc  hl
+       rl   h
+       rl   h
+       rl   h
+       ret
+
+vcpcr:
+PixPrvChr:
+; hl = addr
+; hl = prev char scr addr
+       rr   h
+       rr   h
+       rr   h
+       dec  hl
+       rl   h
+       rl   h
+       rl   h
+       ret
+*/
+vidd:
+       inc  d
+       ld   a,d
+       and  7
+       ret  nz
+       ld   a,e
+       add  a,32
+       ld   e,a
+       ret  c
+       ld   a,d
+       sub  8
+       ld   d,a
+       ret
+       
+vid:
+vcsia:
+PixDwnAdr
+; hl = addr
+; hl = inferior scan addr (down_hl)
+       inc  h
+       ld   a,h
+       and  7
+       ret  nz
+       ld   a,l
+       add  a,32
+       ld   l,a
+       ret  c
+       ld   a,h
+       sub  8
+       ld   h,a
+       ret
+
+vcssad:
+       dec  d
+       ld   a,d
+       and  7
+       cp   7
+       ret  nz
+       ld   a,e
+       sub  32
+       ld   e,a
+       ret  c
+       ld   a,d
+       add  a,8
+       ld   d,a
+       ret
+
+vcssa:
+PixUppAdr:
+; hl = addr
+; hl = superior scan addr (up_hl)
+       dec  h
+       ld   a,h
+       and  7
+       cp   7
+       ret  nz
+       ld   a,l
+       sub  32
+       ld   l,a
+       ret  c
+       ld   a,h
+       add  a,8
+       ld   h,a
+       ret
+/*
+vcnva:
+; hl = addr
+; hl = next visual scan addr
+       inc  l
+       ld   a,l
+       and  01fh
+       ret  nz
+       inc  h
+       ld   a,h
+       and  7
+       ld   a,l
+       jr   nz,vcnva1
+       and  0e0h
+       ret  z
+       ld   a,h
+       sub  8
+       ld   h,a
+       ret
+vcnva1 sub  32
+       ld   l,a
+       ret
+ 
+vcpva
+; hl = addr
+; hl = prev visual scan addr
+       dec  l
+       ld   a,l
+       and  01fh
+       cp   01fh
+       ret  nz
+       dec  h
+       ld   a,h
+       and  7
+       cp   7
+       ld   a,l
+       jr   nz,vcpva1
+       and  0e0h
+       cp   0e0h
+       ret  z
+       ld   a,h
+       add  a,8
+       ld   h,a
+       ret
+vcpva1 add  a,32
+       ld   l,a
+       ret
+*/
+vcatx:
+AtrXY2Adr:
+; bc = xy (char)
+; hl = attr addr
+       ld   a,b
+       rrca
+       rrca
+       rrca
+       ld   h,a
+       and  0e0h
+       or   c
+       ld   l,a
+       ld   a,h
+       and  3
+       or   058h
+       ld   h,a
+       ret
+ 
+vcapx:
+AtrPx2Atr:
+; hl = pix addr
+; hl = atr addr
+       ld   a,h
+       rra
+       rra
+       rra
+       and  01fh
+       or   058h
+       ld   h,a
+       ret

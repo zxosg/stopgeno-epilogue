@@ -1,0 +1,23 @@
+; egl - eklhaft gfx library
+; 8/7/2018 10:21:13 PM
+_eglstart:
+;        include "libs/egl_scroll.a80"
+s: = $
+        include "libs/egl_vprint.a80"
+        display " vprint:",$-s
+s: = $
+        include "libs/egl_delinear.a80"
+        display " delinr:",$-s
+;        include "libs/egl_linehv.a80"
+s: = $
+        include "libs/egl_atrplay.a80"
+        display " attrpl:",$-s
+;        include "libs/egl_iterate.a80"
+s: = $
+        include "libs/egl_draw.a80"
+        display "   draw:",$-s
+s: = $
+        include "libs/egl_funscr.a80"
+        display "  sfunc:",$-s
+
+        display "egl len:",$-_eglstart

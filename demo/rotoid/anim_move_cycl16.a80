@@ -1,0 +1,103 @@
+
+/* -- data structure
+        db      count_reset
+        db      delay
+        db      count_current - bit 7 = 1 for initial run of COS function
+        dw      s (amplitude) - used for COS function to add with (IX) - COS(0)=amplitude
+        dw      accel_temp
+        dw      accel_adder
+        dw      v0
+removed:
+        db      offset to base address
+*/
+
+; v2 -------
+.moveCyc:
+        pop     hl
+        pop     hl
+        ld      e,(hl)  : inc hl           ; count reset
+;- delay
+        bit     7,(hl)
+        jp      z,1F
+;- first cos loop
+        res     7,(hl)                     ; reset first loop in COS
+        inc     hl
+        inc     hl                         ; skip count current
+        ld      e,(hl)                     ; amplitude has to be set
+        inc     hl
+        ld      d,(hl)
+        ld      bc,7
+        add     hl,bc
+        jr      .cosjp
+
+1       dec     (hl)                       ; decrease counter of delay        inc     hl
+        jp      m,1F                       ; z=delay expired
+        ld      bc,10
+        add     hl,bc
+        push    hl
+        jp      @exeptr.loop               ; no action, return
+
+1       inc     (hl)
+        inc     hl
+;- counter
+1       dec     (hl)                       ; decrease counter of iterations
+        jr      nz,1F                      ; c=run core and continue in countdowns
+        push    hl
+        inc     hl                         ; skip counter
+        inc     hl                         ; skip s / amplitude
+        inc     hl
+
+        xor     a                          ; reset speed_current
+        ld      (hl),a  : inc hl
+        ld      (hl),a  : inc hl
+;--
+        sub     (hl)
+        ld      (hl),a  : inc hl
+        sbc     a,a
+        sub     (hl)
+        ld      (hl),a  : inc hl
+        xor     a
+        sub     (hl)
+        ld      (hl),a  : inc hl           ; neg v0
+        sbc     a,a
+        sub     (hl)
+        ld      (hl),a
+
+        pop     hl
+        ld      (hl),e                     ; reset counter
+;- core
+1       inc     hl                         ; move counter
+        inc     hl                         ; skip s (amplitude)
+        inc     hl
+        ld      (.ctmp+1),hl               ; save temp address
+        ld      e,(hl)  : inc hl           ; temp
+        ld      d,(hl)  : inc hl           ;
+        ld      c,(hl)  : inc hl           ; accel_adder
+        ld      b,(hl)  : inc hl           ;
+        ex      de,hl
+        add     hl,bc
+.ctmp:  ld      (#5555),hl                 ; store current speed value
+        ex      de,hl
+        ld      c,(hl)  : inc hl           ; v0
+        ld      b,(hl)  : inc hl           ;
+        ex      de,hl
+        add     hl,bc
+
+        ld      a,l                        ;
+        add     a,a                        ; if lsb >80 then round up!
+        ld      a,0                        ;
+        adc     a,h                        ; => cy=1 h=h+1
+
+        ld      l,a
+        add     a,a
+        sbc     a,a
+        ld      h,a
+        ex      de,hl
+
+.cosjp: push    hl
+        ld      l,(ix+0)
+        ld      h,(ix+1)                   ; hl=current value
+        add     hl,de                      ; de=increment
+        ld      (ix+0),l                   ; save, exit
+        ld      (ix+1),h
+        jp      @exeptr.loop

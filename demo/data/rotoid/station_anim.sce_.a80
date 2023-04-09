@@ -1,0 +1,115 @@
+; --------------------------------
+;  input file: station_anim.sce
+;      lenght: 105
+; symbol file: main.sym
+; 25 Apr 2020 09:28:43
+	ld  hl,._scene_data
+	ld  de,.anim2
+	ld  bc,#0029
+	ldir
+	ld  de,scene
+	ld  bc,sceneSetup.len
+	ldir
+	ld   de,rotoid.gfxPlanet2
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobStation
+	ld   c,10
+	ldir
+	jp   ._cont_setup
+._scene_data:
+
+; animation
+	db #9B
+	db #98
+	db #39
+	db #C7
+	db #AF
+	db #00
+	db #3E
+	db #4C
+	db #26
+	db #56
+	db #00
+	db #BE
+	db #E2
+	db #9B
+	db #98
+	db #3D
+	db #C7
+	db #AF
+	db #00
+	db #97
+	db #13
+	db #01
+	db #0B
+	db #00
+	db #58
+	db #FC
+	db #9B
+	db #98
+	db #3B
+	db #C7
+	db #3F
+	db #00
+	db #3E
+	db #52
+	db #00
+	db #29
+	db #00
+	db #EC
+	db #FA
+	db #00
+	db #00
+
+; scene:
+	dw   #0140	;.posx:
+	dw   #0000	;.posy:
+	dw   #0000	;.posz:
+	dw   #0140	;.far:
+	dw   #0080	;.fade:
+
+; light:
+	dw   #3000	;.posx:
+	dw   #0100	;.posz:
+	db  #00	;.bright:
+	db  #08	;.contrs:
+	db  #27	;.angle:
+	db  #F9	;.leff:
+	db  #00	;.reff:
+	db  #03	;.shade:
+	db  #00	;.mode:
+
+; screen:
+	dw   #007F	;.posx:
+	dw   #0040	;.posy:
+	db  #10	;.cltop:
+	db  #A7	;.clbot:
+	db  #46	;.color:
+
+; currObj:
+	dw   #C70E	;.ptr:
+	db  #27	;.angle:
+	db  #0C	;.ldata:
+	dw   #00AE	;.posx16:
+
+; obj_1:
+;	dw   rotoid.drawMobHDI	;#A88F	;.drwexe:
+;	dw   rotoid.gfxPlanet2	;#D68D	;.mobptr:
+	dw   temp3k	;#5B00	;.datptr:
+	db  #00	;.par1:
+	db  #00	;.par2:
+	dw   #0090	;.posx:
+	dw   #0000	;.posy:
+	dw   #0400	;.posz:
+
+; obj_2:
+;	dw   rotoid.drawMultiObject	;#9B53	;.drwexe:
+;	dw   rotoid.mobStation	;#C735	;.mobptr:
+	dw   rotoid.objStation	;#C6C3	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #F9E8	;.posx:
+	dw   #FF73	;.posy:
+	dw   #0057	;.posz:
+._cont_setup:

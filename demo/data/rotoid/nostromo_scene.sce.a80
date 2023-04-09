@@ -1,0 +1,82 @@
+; --------------------------------
+;  input file: nostromo_scene.sce
+;      lenght: 76
+; symbol file: q:\Development\Dev-ZX\_Kernel\main.sym
+; 18 Aug 2019 23:02:02
+	ld  hl,._scene_data
+	ld  de,scene
+	ld  bc,sceneSetup.len
+	ldir
+	ld   de,rotoid.gfxPlanet2
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobNostromo2
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobNostromo1
+	ld   c,10
+	ldir
+	jp   ._cont_setup
+._scene_data:
+
+; scene:
+	dw   #00EC	;.posx:
+	dw   #00BE	;.posy:
+	dw   #0040	;.posz:
+	dw   #0100	;.far:
+	dw   #0040	;.fade:
+
+; light:
+	dw   #D000	;.posx:
+	dw   #0100	;.posz:
+	db  #F9	;.bright:
+	db  #FB	;.contrs:
+	db  #18	;.angle:
+	db  #F9	;.leff:
+	db  #FF	;.reff:
+	db  #03	;.shade:
+	db  #00	;.mode:
+
+; screen:
+	dw   #00BB	;.posx:
+	dw   #006F	;.posy:
+	db  #10	;.cltop:
+	db  #A7	;.clbot:
+	db  #04	;.color:
+
+; currObj:
+	dw   #9A78	;.ptr:
+	db  #18	;.angle:
+	db  #92	;.ldata:
+	dw   #FFE9	;.posx16:
+
+; obj_1:
+;	dw   rotoid.drawHDI	;#B002	;.drwexe:
+;	dw   rotoid.gfxPlanet2	;#9CC9	;.mobptr:
+	dw   temp3k	;#5B00	;.datptr:
+	db  #00	;.par1:
+	db  #00	;.par2:
+	dw   #0090	;.posx:
+	dw   #0000	;.posy:
+	dw   #0400	;.posz:
+
+; obj_2:
+;	dw   rotoid.drawMultiObject	;#A4B8	;.drwexe:
+;	dw   rotoid.mobNostromo2	;#9AD1	;.mobptr:
+	dw   rotoid.objNostromo1	;#9A5F	;.datptr:
+	db  #7F	;.par1:
+	db  #20	;.par2:
+	dw   #0000	;.posx:
+	dw   #0000	;.posy:
+	dw   #0050	;.posz:
+
+; obj_3:
+;	dw   rotoid.drawMultiObject	;#A4B8	;.drwexe:
+;	dw   rotoid.mobNostromo1	;#9AC7	;.mobptr:
+	dw   rotoid.objNostromo2	;#9A93	;.datptr:
+	db  #7F	;.par1:
+	db  #20	;.par2:
+	dw   #0000	;.posx:
+	dw   #0000	;.posy:
+	dw   #0041	;.posz:
+._cont_setup:

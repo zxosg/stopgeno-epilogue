@@ -1,0 +1,28 @@
+; move object's one 16bit dimension / parametter
+; ix is passed from "exeptr" = modified address
+; de is obtained             = adder (d-full numbers, e-fraction)
+
+.movef:
+        ld      a,(@fps)
+        ld      (fpstmp),a
+        jp      1F
+
+.move:
+        ld      a,1
+        ld      (fpstmp),a
+1       pop     hl
+        pop     hl
+
+        ld      e,(hl) : inc     hl        ; de=step
+        ld      d,(hl) : inc     hl
+
+        push    hl
+        ld      l,(ix+0)
+        ld      h,(ix+1)
+        ld      a,(fpstmp)                 ; fps mod
+        ld      b,a
+1       add     hl,de
+        djnz    1B
+        ld      (ix+0),l                   ; save, exit
+        ld      (ix+1),h
+        jp      @exeptr.loop

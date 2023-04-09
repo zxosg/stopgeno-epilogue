@@ -1,0 +1,27 @@
+; atr fade out
+atrFade:
+           ld   hl,#5800
+           ld   bc,768
+.loop
+           ld   e,(hl)
+           ld   a,e
+           and  7
+           jp   z,1F
+           dec  a
+1          ld   d,a
+           ld   a,e
+           and  %00111000
+           jp   z,1F
+           sub  8
+1          or   d
+;----
+           ld   d,a
+           ld   a,e
+           and  %11000000
+           or   d
+;----
+           ld   (hl),a
+           cpi
+           jp   pe,.loop
+           ret
+

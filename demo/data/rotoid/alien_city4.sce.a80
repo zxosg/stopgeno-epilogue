@@ -1,0 +1,95 @@
+; --------------------------------
+;  input file: alien_city4.sce
+;      lenght: 90
+; symbol file: main.sym
+; 19 Apr 2020 07:20:26
+	ld  hl,._scene_data
+	ld  de,scene
+	ld  bc,sceneSetup.len
+	ldir
+	ld   de,rotoid.pttPlanet
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobTower3
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobTower2
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobTower1
+	ld   c,10
+	ldir
+	jp   ._cont_setup
+._scene_data:
+
+; scene:
+	dw   #FF8A	;.posx:
+	dw   #FFB9	;.posy:
+	dw   #FFE9	;.posz:
+	dw   #0300	;.far:
+	dw   #00A0	;.fade:
+
+; light:
+	dw   #D000	;.posx:
+	dw   #0100	;.posz:
+	db  #00	;.bright:
+	db  #09	;.contrs:
+	db  #18	;.angle:
+	db  #00	;.leff:
+	db  #F8	;.reff:
+	db  #04	;.shade:
+	db  #00	;.mode:
+
+; screen:
+	dw   #007F	;.posx:
+	dw   #007E	;.posy:
+	db  #00	;.cltop:
+	db  #A7	;.clbot:
+	db  #46	;.color:
+
+; currObj:
+	dw   #DBC0	;.ptr:
+	db  #18	;.angle:
+	db  #AB	;.ldata:
+	dw   #00D8	;.posx16:
+
+; obj_1:
+;	dw   rotoid.drawMobHDI	;#A883	;.drwexe:
+;	dw   rotoid.pttPlanet	;#D88A	;.mobptr:
+	dw   dtaPlanet	;#7A22	;.datptr:
+	db  #08	;.par1:
+	db  #00	;.par2:
+	dw   #0000	;.posx:
+	dw   #0087	;.posy:
+	dw   #0100	;.posz:
+
+; obj_2:
+;	dw   rotoid.drawMultiObject	;#9B4A	;.drwexe:
+;	dw   rotoid.mobTower3	;#DC25	;.mobptr:
+	dw   rotoid.objTower3	;#DC0A	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #FF45	;.posx:
+	dw   #0000	;.posy:
+	dw   #0070	;.posz:
+
+; obj_3:
+;	dw   rotoid.drawMultiObject	;#9B4A	;.drwexe:
+;	dw   rotoid.mobTower2	;#DC00	;.mobptr:
+	dw   rotoid.objTower2	;#DBE5	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #fdf0	;.posx:
+	dw   #0000	;.posy:
+	dw   #0038	;.posz:
+
+; obj_4:
+;	dw   rotoid.drawMultiObject	;#9B4A	;.drwexe:
+;	dw   rotoid.mobTower1	;#DBDB	;.mobptr:
+	dw   rotoid.objTower1	;#DBC0	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #0000	;.posx:
+	dw   #0000	;.posy:
+	dw   #0013	;.posz:
+._cont_setup:

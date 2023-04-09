@@ -1,0 +1,43 @@
+.moveCntf:
+        ld      a,(@fps)
+        ld      (fpstmp),a
+        jp      1F
+
+.moveCnt:
+        ld      a,1
+        ld      (fpstmp),a
+1       pop     hl
+        pop     hl
+        ld      e,(hl) : inc     hl        ; de=step
+        ld      d,(hl) : inc     hl
+
+        ld      a,(fpstmp)
+        neg
+        add     a,(hl)                     ; decrease counter of delay
+        jr      nc,1F                      ; nc=delay expired
+        ld      (hl),a                     ; c= delay more, store current counter
+        inc     hl                         ; skip iterations
+        inc     hl
+        push    hl
+        jp      @exeptr.loop               ; no action, return
+
+1       inc     hl
+        ld      a,(fpstmp)
+        neg
+        add     a,(hl)                     ; decrease counter of iterations
+        jp      c,._move                   ; c=run action
+        inc     hl
+        push    hl
+        jp      @exeptr.loop               ; no action, return
+
+._move: ld      (hl),a : inc     hl
+        push    hl
+        ld      l,(ix+0)
+        ld      h,(ix+1)
+        ld      a,(fpstmp)                   ; fps mod
+        ld      b,a
+1       add     hl,de
+        djnz    1B
+        ld      (ix+0),l                   ; save, exit
+        ld      (ix+1),h
+        jp      @exeptr.loop

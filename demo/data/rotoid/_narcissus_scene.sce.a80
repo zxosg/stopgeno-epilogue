@@ -1,0 +1,95 @@
+; --------------------------------
+;  input file: _narcissus_scene.sce
+;      lenght: 90
+; symbol file: q:\Development\Dev-ZX\_Kernel\main.sym
+; 11 Aug 2019 16:00:52
+	ld  hl,._scene_data
+	ld  de,scene
+	ld  bc,sceneSetup.len
+	ldir
+	ld   de,rotoid.gfxCloudB
+	ld   c,10
+	ldir
+	ld   de,rotoid.gfxCloudL
+	ld   c,10
+	ldir
+	ld   de,rotoid.gfxCloudR
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobNarcis2
+	ld   c,10
+	ldir
+	jp   ._cont_setup
+._scene_data:
+
+; scene:
+	dw   #0000	;.posx:
+	dw   #0000	;.posy:
+	dw   #0000	;.posz:
+	dw   #0100	;.far:
+	dw   #0080	;.fade:
+
+; light:
+	dw   #D000	;.posx:
+	dw   #0100	;.posz:
+	db  #03	;.bright:
+	db  #0C	;.contrs:
+	db  #18	;.angle:
+	db  #03	;.leff:
+	db  #F8	;.reff:
+	db  #07	;.shade:
+	db  #00	;.mode:
+
+; screen:
+	dw   #007F	;.posx:
+	dw   #0040	;.posy:
+	db  #10	;.cltop:
+	db  #A7	;.clbot:
+	db  #04	;.color:
+
+; currObj:
+	dw   #9618	;.ptr:
+	db  #1F	;.angle:
+	db  #85	;.ldata:
+	dw   #0069	;.posx16:
+
+; obj_1:
+;	dw   rotoid.persp16b.c1	;#B017	;.drwexe:
+;	dw   rotoid.gfxCloudB	;#9CA2	;.mobptr:
+	dw   temp3k	;#5B00	;.datptr:
+	db  #00	;.par1:
+	db  #00	;.par2:
+	dw   #0080	;.posx:
+	dw   #0088	;.posy:
+	dw   #0780	;.posz:
+
+; obj_2:
+;	dw   rotoid.persp16b.c1	;#B017	;.drwexe:
+;	dw   rotoid.gfxCloudL	;#9CAC	;.mobptr:
+	dw   CloudL	;#5B87	;.datptr:
+	db  #00	;.par1:
+	db  #00	;.par2:
+	dw   #0010	;.posx:
+	dw   #0020	;.posy:
+	dw   #0780	;.posz:
+
+; obj_3:
+;	dw   rotoid.persp16b.c1	;#B017	;.drwexe:
+;	dw   rotoid.gfxCloudR	;#9CB6	;.mobptr:
+	dw   CloudR	;#6092	;.datptr:
+	db  #00	;.par1:
+	db  #00	;.par2:
+	dw   #00B0	;.posx:
+	dw   #0030	;.posy:
+	dw   #0780	;.posz:
+
+; obj_4:
+;	dw   	;#A4CD	;.drwexe:
+;	dw   rotoid.mobNarcis2	;#9633	;.mobptr:
+	dw   rotoid.objNarcis2	;#9618	;.datptr:
+	db  #7F	;.par1:
+	db  #9F	;.par2:
+	dw   #FFB8	;.posx:
+	dw   #0062	;.posy:
+	dw   #004C	;.posz:
+._cont_setup:

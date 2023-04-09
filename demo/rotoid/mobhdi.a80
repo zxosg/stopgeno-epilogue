@@ -1,0 +1,834 @@
+; hdipixfil          ; byte value for filling pixels
+; hdiatrfil          ;                        attrs
+
+/*
+_            STRUCT hdi
+_  bwidth:   db     0
+_  height:   db     0
+_  atrsize:  db     0
+_            ENDS
+_
+_          STRUCT mobhdi
+_  gfxptr:  dw      0   ; source data address
+_  mode:    db      0   ; 7bit 0=LDI, 1=OR
+_                       ; 6bit 0=ignore perspective correction, 1=perspective on
+_                       ; 5bit 0=ignore scene and perspective, 1=screen offset on
+_                       ; 4bit 0=ignore z-pos
+_                       ; 3bit 1=pattern fill (vertical data filled accross define rectangle), calls eraseMobHDI
+                        ;        *ignoring the rest of switches
+                        ;        1bit 0=pixel pattern mode, 1=attr pattern
+_                       ; 2bit 1=gfxptr points to "erahdi" object
+                        ; 1bit 0-no mask. 1=masked mode
+_                       ; 0bit 0/1 fill bit for pre-rotated bitmaps
+_  mode2:   db      0   ; rotated bitmap (per 1,2,4 pixels)
+_  posx:    dw      0   ; pixels (bitmap is not rotated to correct pixel position)
+_  posy:    dw      0   ; pixels
+_  posz:    dw      0
+_          ENDS
+_
+_          STRUCT erahdi
+_  gfxptr:  dw      0
+_  addr:    dw      0
+_  bwidth:  db      0
+_  height:  db      0
+_           ds      4
+_          ENDS
+*/
+
+;-------------------------------------------------------------------------------
+eraseMobHDI:
+        bit    2,(ix+mobhdi.mode)            ; test if erase object is defined
+        ret    z
+        ld     hl,hdipixfil
+        ld     a,_nop
+        ld     (.data+1),hl
+        ld     (.inop),a
+        ld     hl,vidd
+        ld     (.nline+1),hl
+;--
+        ld     hl,(ix+mobhdi.gfxptr)
+        inc    hl
+        inc    hl
+/* moved to draw routine
+        ld     e,l,d,h
+        ld     bc,4                          ; size of one vram swapable structure
+        push   hl
+        call   rotoid.swapVram2.go
+; determine drawing mode
+;-- fill object with value (hdifill - pixels, hdiatrs - attrs)
+        pop    hl
+*/
+        ld     e,(hl)
+        inc    hl
+        ld     d,(hl)                        ; de = vram
+        inc    hl
+        ld     a,(hl)                        ; a=bwidth
+        inc    hl
+        ld     b,(hl)                        ; b=height
+.fillPattern:
+        add    a,a
+        ret    z
+        neg
+        add    a,64
+        ld     (.xl_jr+1),a
+
+        ld     a,(@page)
+        ex     af,af
+        ld     a,(run.vpage+1)
+        page_a
+
+.data:
+        ld     hl,hdipixfil             ; or pattern fill address
+.lp1:   ld     c,e
+        ld     a,(hl)                   ; fill byte for pixels
+.inop:  inc    hl                       ; inchl or nop
+.xl_jr:
+        jr     $
+        dup    #20
+         ld    (de),a : inc e
+        edup
+        ld     e,c
+.nline: call   vidd
+        djnz   .lp1
+        ex     af,af
+        page_a
+        ret
+
+.nattr: ld     a,e
+        add    a,#20
+        ld     e,a
+        ret    nc
+        inc    d
+        ret
+
+;-------------------------------------------------------------------------------
+drawMobHDI:
+        ld     a,(@page)
+        ld     (.spg+1),a
+        ld     de,(ix+mobhdi.gfxptr)
+        ld     a,(ix+mobhdi.mode)            ; fill pattern mode ignores all other switches!
+
+        bit    3,a
+        jr     z,1F                          ; nz=pattern mode
+        bit    1,a
+        ld     hl,vidd                       ; z=pixel mode, nz=attr mode
+        jr     z,2F
+        ld     hl,eraseMobHDI.nattr
+2       ld     (eraseMobHDI.nline+1),hl
+        ld     a,_inchl
+        ld     (eraseMobHDI.inop),a
+        ld     c,(ix+mobhdi.posx)
+        ld     b,(ix+mobhdi.posy)
+        bit    1,(ix+mobhdi.mode)
+        call   z,PixCY2Adr
+        bit    1,(ix+mobhdi.mode)
+        call   nz,AtrXY2Adr
+        set    7,h
+        ex     de,hl
+        ld     a,(hl)            ; width
+        inc    hl
+        ld     b,(hl)            ; height
+        inc    hl                ; follows graphics
+        ld     (eraseMobHDI.data+1),hl
+        jp     eraseMobHDI.fillPattern
+
+1       bit    2,a
+        jr     z,1F                          ; nz=data stored in the erahdi object
+        ex     de,hl
+        ld     e,(hl)                        ; get gfx pointer from erahdi object
+        inc    hl
+        ld     d,(hl)
+        inc    hl
+        ld     (.sera+1),hl                  ; save addr of erase object
+
+1       ld     iy,de
+     .3 inc    de
+        ld     (.gfxptr+1),de
+        ld     hl,(ix+mobhdi.posz)
+
+        bit    4,a
+        jr     z,1F
+        ld     de,(scene.posz)
+        sub    hl,de
+        ret    m
+
+1       ld     bc,hl
+        ld     hl,(ix+mobhdi.posy)
+
+        bit    5,a
+        jr     z,1F
+        ld     de,(scene.posy)
+        sub    hl,de
+
+        bit    6,a
+        call   nz,persp16b
+        ld     de,(screen.posy)
+        add    hl,de
+1       ld     (.posy+1),hl
+        ld     hl,(ix+mobhdi.posx)
+
+        bit    5,(ix+mobhdi.mode)
+        jr     z,1F
+        ld     de,(scene.posx)
+        sub    hl,de
+        bit    6,(ix+mobhdi.mode)
+        call   nz,persp16b
+        ld     de,(screen.posx)
+        add    hl,de
+
+1       ld     a,l
+        and    7
+        ld     (.pixpos+1),a
+
+        sra    h
+        rr     l
+        sra    h
+        rr     l
+        sra    h
+        rr     l
+
+        ld     a,h
+        and    a
+        ld     a,l
+        jr     z,1F                       ; z=posx was not negative and fits into visible screen
+        inc    h
+        ret    nz                         ; nz=posx was negative
+        and    #c0
+        sub    #c0
+        ret    nz
+        xor    a
+1       ld     (.dposx+1),a               ; posx in bytes (+/- 127)
+        ld     a,l
+        cp     #20
+; S C
+; 0 x   bitmap left side in visible screen
+; 1 x   not visible
+        ret    p                          ; left corner is too right - not visible
+
+        ld     c,(iy+hdi.bwidth)
+        add    a,c
+        ret    m                          ; condition leftside + bitmap width < 0
+        ret    z                          ; =0
+        cp     c
+; S C
+; 1 0   far left, not visible
+; 1 1   left, partially visible - moved start, wiidth
+; 0 0   start 0
+        ld    b,0                         ; b=start bitmap pos
+        jp    p,1F                        ;
+        ret   nc                          ; bitmap is far left = not visible
+        ld    (.dwidth+1),a
+        sub   c
+        neg
+        ld    (.dstart+1),a
+        jp    3F
+
+1       sub   #20                         ; test of right side
+        jp    c,2F
+        ld    b,a
+        ld    a,c
+        sub   b
+        ld    c,a
+
+2       ld    a,c
+        ld    (.dwidth+1),a
+        xor   a
+        ld    (.dstart+1),a
+
+; ---   test if bitmap lays in visible screen area of y (cltop-clbot)
+3
+;        ld     a,(ix+mobhdi.posy+1)        ; high byte of posy
+.posy:  ld     hl,#5555
+        ld     a,h
+        and    a
+        jp     z,1f
+        ret    p                           ; quit, posy > 256
+
+        xor    a
+1       sub    (iy+hdi.atrsize)
+        jr     z,1F
+        and    l
+        ld     l,a
+
+1       ld     (.posy2+1),hl
+        ld     a,(screen.clbot)
+        ld     (.cpclb+1),a
+        ld     c,a
+        ld     b,0
+        ld     a,h
+        and    a
+        jp     m,1f
+
+        sbc    hl,bc
+        ret    nc                          ;.quit posy>clbot
+        add    hl,bc
+1       ld     c,(iy+hdi.height)
+        add    hl,bc
+        ld     a,h
+        and    a
+        ret    m                           ; bitmap above visible area
+        jp     nz,1F
+
+        ld     a,(screen.cltop)
+        ld     (.cpclt+1),a
+        cp     l
+        ret    nc                          ;.quit, cltop test
+1
+.dwidth:
+        ld     c,#55
+        bit    1,(ix+mobhdi.mode)          ; has bitmap mask?
+        jr     z,1F
+        ld     hl,.maskline
+        ld     (.dline+1),hl
+        jr     .dcnt                       ; skip
+
+1       bit    7,(ix+mobhdi.mode)          ; which drawing mode
+        jp     z,.putGfx                   ; 0=ldi, 1=or
+
+;-- or gfx, width modification
+        ld     hl,.orline
+        ld     (.dline+1),hl
+        ld     a,1
+        ld     (.or_rest+1),a
+.maxWdth: = 23
+        ld     a,c
+        sub    .maxWdth+1
+        jr     c,1F                        ; width exceeds routine unrolled state
+        inc    a
+        ld     (.or_rest+1),a              ; draw the rest with loop
+        ld     c,.maxWdth
+
+1       ld     a,c
+        add    a,a
+        add    a,a
+        add    a,c
+        neg
+        add    a,.maxWdth*5
+        ld     (.or_jr+1),a
+        jp     .dcnt
+
+.putGfx:
+;-- ldi / blit gfx
+        ld     hl,.putline
+        ld     (.dline+1),hl
+        ld     a,c
+        add    a,a
+        neg
+        add    a,64
+        ld     (.blit_jr+1),a
+
+.dcnt:
+         ld     a,(ix+mobhdi.mode2)
+         and    a
+         jr     nz,.dc0
+         bit    1,(ix+mobhdi.mode)         ; mask is present not pre-rotated
+         jr     z,.cont0
+         xor    a
+         jr     1F
+
+.dc0:
+         sra    a                          ; mode2 1..0, 2..1, 4..2
+.pixpos: ld     b,#55
+         jr     z,1F
+         sra    b
+         dec    a
+         jr     z,1F
+         sra    b
+1        ld     a,b
+         ld     (.bitpos+1),a
+
+         exx
+         ld     a,(iy+hdi.height)
+         ld     e,(iy+hdi.bwidth)
+         call   math.mul0808
+         push   hl                         ; save bitmap length
+         bit    1,(ix+mobhdi.mode)         ; masked mode?
+         jr     z,1F
+         add    hl,hl                      ; yes=double height (gfx, mask)
+1        ex     de,hl
+         ld     hl,(.gfxptr+1)
+.bitpos: ld     a,#55
+         and    a
+         jr     z,2F
+         ld     b,a
+1        add    hl,de
+         djnz   1B
+2        ld     (.gfxptr+1),hl
+         pop    bc                         ; bc=bitmap length (for .maskline)
+         exx
+
+.cont0:
+.gfxptr: ld     hl,#5555
+.posy2:  ld     de,#5555
+.dstart: ld     bc,#0055
+
+        add    hl,bc
+        ld     a,(iy+hdi.atrsize)
+        ld     (.atrchck+1),a
+        dec    a
+        ld     (.atrsize+1),a
+        ld     (.atrsiz2+1),a
+        ld     c,(iy+hdi.bwidth)
+        ld     b,0
+        ld     (.wdtha+1),bc
+        ld     a,(iy+hdi.height)
+        ld     yl,a
+        ld     yh,0
+
+        ld     a,(run.vpage+1)
+        page_a
+
+.lp0:   ld     a,d
+        and    a
+        jp     nz,.skiprow
+        ld     a,e
+.cpclt: cp     #55
+        jp     nc,.draw
+.skiprow:
+        inc    de
+        add    hl,bc
+.atrchck:
+        ld     a,#55
+        and    a
+        jr     z,1F              ; bitmap has no attributes, skip attr line
+        ld     a,yl
+.atrsiz2:
+        and    #55
+        jr     nz,1F             ; bitmap has attributes (data are organized: attrs 1x row, pixel row x atrsize)
+        add    hl,bc
+1       inc    yh
+        dec    yl
+        jp     nz,.lp0
+        ret
+
+.draw:
+        ld     a,yl
+        ld     (.shght+1),a
+        ld     yh,e                       ; yh = posy
+        ld     b,e
+;        ex     de,hl
+;        ld     b,l
+.dposx: ld     c,#55
+        ex     de,hl
+        call   PixCY2Adr
+        set    7,h
+        ld     (.svram+1),hl
+.lp1:   push   hl
+        ld     a,h
+.atrsize:
+        and    #55
+        jr     nz,1F
+        ld     a,h
+        rra
+        rra
+        rra
+        and    #1f
+        or     #d8
+.h_a:   ld     h,a
+        ld     a,(.h_a)
+        xor    #67                          ; LD H,A
+        ld     (.h_a),a
+;--
+1       ld     a,h
+        and    #18
+        ld     (.chkatr+1),a
+
+.dline: jp     #5555
+
+.putline:
+        ex     de,hl
+        push   hl
+.blit_jr:
+        jr     $
+        dup 32
+         ldi
+        edup
+.dcnt2:
+        pop    hl,de
+.wdtha: ld     bc,#0055                   ; increment graphics (next line)
+        add    hl,bc
+        ex     de,hl
+.chkatr: ld    a,#55                      ; 8 = attrs, 0=pixels
+        cp     #18
+        jp     z,.lp1
+
+        inc    h
+        ld     a,h
+        and    7
+        jp     nz,1F
+        ld     a,l
+        add    a,32
+        ld     l,a
+        jp     c,1F
+        ld     a,h
+        sub    8
+        ld     h,a
+1       inc    yh
+        ld     a,yh
+.cpclb: cp     #55
+        jp     nc,.spg
+        dec    yl
+        jp     nz,.lp1
+
+.spg:   ld     a,#55
+        page_a
+
+        bit    2,(ix+mobhdi.mode)         ; nz=erase object
+        ret    z
+
+.sera:  ld     hl,#5555
+        push   hl
+;---
+.svram: ld     de,#5555
+        ld     (hl),e
+        inc    hl
+        ld     (hl),d
+        inc    hl
+        ld     a,(.dwidth+1)
+        ld     (hl),a
+        inc    hl
+        ld     a,yl
+        and    a
+.shght: ld     a,#55
+        jr     z,1F
+        inc    a
+        sub    yl
+1       ld     (hl),a
+;--- swap data for 2nd vram (size and position)
+        pop    hl
+        ld     de,hl
+        ld     bc,4                          ; size of one vram swapable structure
+        call   rotoid.swapVram2.go
+        ret
+
+.orline:
+        push   de
+.or_jr:                                 ;! do not change code below or_jr (setBlitOpc)
+        jr     $
+        dup    .maxWdth-1               ; max 23
+         ld     a,(de)
+         or     (hl)                    ; can be modified to for anything else
+         ld     (hl),a
+         inc    l
+         inc    de
+        edup
+.or_rest:
+        ld     b,#55
+1       ld     a,(de)
+.bltop: or     (hl)
+        ld     (hl),a
+        inc    l
+        inc    de
+        djnz   1B
+        ex     de,hl                    ; swap (see ldi)
+        jp     .dcnt2
+
+.maskline:
+        push   de
+        push   de                       ; save sprite gfx
+        exx
+        pop    hl                       ; pop sprite gfx
+        add    hl,bc                    ; add gfx length = mask addr
+        exx
+        ex     de,hl
+        ld     a,(.dwidth+1)
+        ld     b,a
+1       ld     a,(de)
+        exx
+        and    (hl)
+        inc    hl
+        exx
+        or     (hl)
+        ld     (de),a
+        inc    e
+        inc    hl
+        djnz   1B
+        jp     .dcnt2
+
+
+;--- modifies OR (hl) in the draw routine to instruction in reg-A
+;--- argument in xl
+.setBlitOpcX:
+        ld     a,xl
+;--- use ld a,_andhl (_xorhl,_orhl,_addhl,_subhl)
+.setBlitOpc:
+        ld     hl,.or_jr+3              ;! do not change code below or_jr
+        ld     de,5
+        ld     b,.maxWdth-1
+1       ld     (hl),a
+        add    hl,de
+        djnz   1B
+        ld     hl,.bltop
+        ld     (hl),a
+        ret
+
+;------------------------------------------------------------
+; rotate bitmap 1,2,4
+; IX=mobhdi
+rotMobHDI:
+        ld     a,(ix+mobhdi.mode2)
+        and    7
+        ld     yl,a
+
+        ld     hl,(ix+mobhdi.gfxptr)
+        bit    2,(ix+mobhdi.mode)
+        jr     z,1F
+        ld     a,(hl)
+        inc    hl
+        ld     h,(hl)
+        ld     l,a
+
+1       ld     a,(hl)                   ; hl=hdi structure, width
+        ld     (.wdt+1),a
+        ld     e,a
+        inc    hl
+        ld     a,(hl)                   ; height
+        ld     (.cpmsk+1),a             ; save signle height to CP mask
+        bit    1,(ix+mobhdi.mode)       ; masked mode?
+        jr     z,1F
+        add    a,a                      ; yes=double height for rotation
+1       ld     (.hgh+1),a
+        ld     d,a
+        inc    hl
+        ld     a,(hl)
+        inc    hl
+        and    a
+        ret    nz                       ; skip attr
+        push   hl                       ; hl = gfx data
+        ld     a,d
+        call   math.mul0808             ; calc gfx length
+        ld     (.len+1),hl
+.lp1:   pop    hl                       ; get back gfx
+        ld     de,hl
+.len:   ld     bc,#5555
+        add    hl,bc                    ; dest gfx
+        ex     de,hl
+        ldir                            ; move data to new gfx location
+        push   hl                       ; hl=new start
+.hgh:   ld     d,#55
+.lp4:   ld     e,(ix+mobhdi.mode2)      ; number of rotations
+.lp3:   push   hl                       ;1
+.wdt:   ld     b,#55                    ; width
+; using mask?
+        bit    1,(ix+mobhdi.mode)
+        jr     z,1F
+; are we in the mask area?
+.cpmsk: ld     a,#55
+        cp     d                        ; if processed line is below height,cy
+        ccf
+        jr     c,.lp2
+
+1       ld     a,(ix+mobhdi.mode)       ; set initial pixel as bit3 of mode2
+        rra
+.lp2:   rr     (hl)
+        inc    hl
+        djnz   .lp2
+        dec    e
+        jr     z,1F
+        pop    hl
+        jr     nz,.lp3
+1       pop    af                       ;throw away hl
+        dec    d
+        jr     nz,.lp4
+        ld     a,yl
+        add    a,(ix+mobhdi.mode2)
+        ld     yl,a
+        cp     8
+        jr     c,.lp1
+        pop    hl
+        ret
+
+;------------------------------------------------------------
+; recolour transparent attributes to color specified in A=reg
+; a=new color, b=old color, ix=hdi bitmap address
+recolHDI:
+        ld     (.newc+1),a
+        ld     a,b
+        ld     (.oldc+1),a
+        ld     a,(ix+hdi.atrsize)
+        and    a
+        ret    z
+        ld     c,(ix+hdi.bwidth)
+        ld     d,(ix+hdi.height)
+        ld     e,a
+        ld     hl,ix
+     .3 inc    hl
+        ld     b,0
+.l1:    push   bc
+.oldc:  ld     a,#ff
+.l2:    cpi
+        jr     nz,1F
+        dec    hl
+.newc:  ld     (hl),#55
+        inc    hl
+1       jp     pe,.l2
+        pop    bc
+        ld     a,e
+.l3:    add    hl,bc
+        dec    d
+        ret    z
+        dec    a
+        jr     nz,.l3
+        jr     .l1
+
+; save part of screen as HDI image
+; Input:
+; a = page
+; bc=start cx,py
+; d = height, e = width
+; IX = resulting address of HDI data
+; Output:
+; HL = length of data
+saveHDIpage:                              ; stores data from #c000
+        ld     (saveHDI.spg1+1),a         ;
+        ld     a,(@page)
+        ld     (saveHDI.spg2+1),a
+        ld     a,#80
+        jr     1F
+saveHDI:
+        ld     a,(@page)
+        ld     (saveHDI.spg1+1),a
+        ld     (saveHDI.spg2+1),a
+        xor    a                          ; stores data from #4000
+1       ex     af,af
+        ld     (ix+hdi.bwidth),e
+        ld     (ix+hdi.height),d
+        ld     (ix+hdi.atrsize),d
+        call   PixCY2Adr
+        ex     af,af
+        or     h
+        ld     h,a
+        push   ix,ix
+        pop    de
+     .3 inc    de
+
+.l1:    push   hl
+        ld     b,0
+        ld     c,(ix+hdi.bwidth)
+.spg1:  ld     a,#55
+        page_a
+        ldir
+.spg2:  ld     a,#55
+        page_a
+        pop    hl
+        call   vid
+        dec    (ix+hdi.atrsize)
+        jr     nz,.l1
+        ld     (ix+hdi.atrsize),0
+        pop    bc
+        ex     de,hl
+        sbc    hl,bc
+        ret
+
+;-----------------------------------------
+;--- invert gfx data in the gfxmob format
+;--- ix: mobhdi object
+
+invMobHDI:
+        ld      hl,(ix+mobhdi.gfxptr)
+        bit     2,(ix+mobhdi.mode)
+        jr      z,1F
+        ld      a,(hl)
+        inc     hl
+        ld      h,(hl)
+        ld      l,a
+1
+.headless:
+        ld      d,(hl)               ; bwidth
+        inc     hl
+        ld      e,(hl)               ; height
+        inc     hl
+        ld      a,(hl)
+        and     a
+        ret     nz                   ; no action for images with colors
+        inc     hl
+        ld      a,d
+        push    hl
+        call    math.mul0808
+        ld      bc,hl
+        pop     hl
+.l1:    ld      a,(hl)
+        cpl
+        ld      (hl),a
+        cpi
+        jp      pe,.l1
+        ret
+
+;-----------------------------------------
+;--- mirror window
+;--- ix: mirror object
+winMirror:
+        ld     a,(@page)
+        ex     af,af
+        ld     a,(run.vpage+1)
+        page_a
+
+        bit     7,(ix+mirr.mode)
+        ld      hl,vidd
+        jr      z,1F
+        ld      hl,vcssad
+1       ld      (.c2de+1),hl
+        ld      c,(ix+mirr.xpos1)
+        ld      b,(ix+mirr.ypos1)
+        call    PixCY2Adr
+        set     7,h
+        ex      de,hl
+
+        exx
+        ld      b,(ix+mirr.hght)
+        ld      c,b
+1       ld      a,c
+        sub     b
+        exx
+
+        ld      c,(ix+mirr.xpos2)
+        add     a,(ix+mirr.ypos2)
+        ld      b,a
+        ld      a,r
+        bit     6,(ix+mirr.mode)
+        jr      z,2F
+        and     3
+        add     a,b
+        ld      b,a
+2       call    PixCY2Adr
+        set     7,h
+        ld      b,0
+        ld      c,(ix+mirr.wdth)
+        push    hl,de
+        ldir
+        pop     de,hl
+.c2de:  call    vidd
+        exx
+        djnz    1B
+
+        ex      af,af
+        page_a
+        ret
+
+filwin: pop     hl
+        ld      c,(hl) : inc hl
+        ld      b,(hl) : inc hl
+        ld      a,(hl) : inc hl
+        ld      (.w+1),a
+        ld      a,(hl) : inc hl
+        ld      (.h+1),a
+        ld      a,(hl) : inc hl
+        ld      (.f+1),a
+        push    hl
+        call    AtrXY2Adr
+        ld      de,#20
+.h:     ld      c,#55
+        push    hl
+.w:     ld      b,#55
+        ld      a,l
+.f:     ld      (hl),#55
+        inc     l
+        djnz    .f
+        pop     hl
+        add     hl,de
+        dec     c
+        jr      nz,1B
+        pop     hl
+        jp      (hl)
+
+hdipixfil: db   0

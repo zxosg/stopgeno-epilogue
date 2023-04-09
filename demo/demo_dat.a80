@@ -1,0 +1,547 @@
+; demo data
+atrMaskTab1:
+; halts between each block
+         db    2                               ; number of halts between each mask
+; demo group text
+;         db    24,0
+;         db    24,-7
+; invader monster
+         db    40,-1
+         db    40,-7
+; teeth
+         db    16,0
+         db    16,-7
+; invaders text
+         db    32,0
+         db    32,-7
+; background gradient
+;         db    8, 0
+;         db    8, -7
+; background gradient
+         db    8, -1
+; teeth
+         db    16,0
+; demo group text
+         db    24,0
+; invaders text
+         db    32,0
+; invader monster
+         db    40,-1
+; end of block, number of halts
+         db    #80, 0
+
+atrMaskTab2:
+; halts between each block
+         db    0
+; background gradient
+         db    8, 0
+; teeth
+         db    16,0
+; demo group text
+         db    24,1
+; invaders text
+         db    32,1
+; invader monster
+         db    40,0
+; end of block, number of halts
+         db    #80, 0
+
+atrMaskTab3:
+; halts between each block
+         db    0
+; demo group text
+         db    24,0
+; invaders text
+         db    32,0
+; end of block, number of halts
+         db    #80, 0
+blk = 2                    ; blink counter
+atrMaskTab5:               ; solar system
+         db    2            ; wait in halts between changes
+; sun
+         dup  blk
+         db    48,-7
+         db    48,0
+         edup
+
+; earth
+         dup blk
+         db    8,-5
+         db    8, 0
+         edup
+
+; inner ring
+         dup blk
+         db    16,-7
+         db    16,-0
+         edup
+
+; outer planets
+         dup blk
+         db    32,-4
+         db    32,-0
+         edup
+
+; outer ring
+         dup   2
+         db    24,-2
+         db    24,-0
+         edup
+; stars
+         db    40, -7
+         db    40, 0
+
+/*
+; earth
+         dup  8
+         db    8, 7
+         db    8, -7
+         edup
+
+         db    8, 0
+*/
+
+; end of block, number of halts
+         db    #80, #40
+
+atrMaskTab6:               ; earth blink
+         db    2            ; wait in halts between changes
+; stars
+         db    40, 0
+         db    40, #08+1
+; outer ring
+         db    24, 0
+         db    24, #08+1
+; outer planets
+         db    32, 0
+         db    32, #08+1
+; inner ring
+         db    16, 0
+         db    16, #08+1
+; earth
+         db    8, 0
+         db    8, #08+1
+; sun
+;         db    48, 0
+;         db    48, #08+6
+; earth
+         dup  8
+         db    8, 7
+         db    8, #08+1
+         edup
+         db    8, 0
+;end
+         db    #80, 0
+
+atrMaskTab7:               ; earth blink
+         db    4            ; wait in halts between changes
+; earth
+         dup  4
+         db    8, 7
+         db    8, #08+1
+         edup
+         db    8, 0
+;end
+         db    #80, 0
+
+atrMaskTab8:
+         db    4            ; wait in halts between changes
+; stars
+         db    40, #08
+; outer ring
+         db    24, #08
+; outer planets
+         db    32, #08
+; inner ring
+         db    16, #08+1
+; earth
+         db    8,  #08
+; sun
+         db    48, #08+1
+; earth
+         dup  8
+         db    8, 7
+         db    8, #08+1
+         edup
+         db    8, 7
+;end
+         db    #80, 0
+
+blk = 1                    ; blink counter
+atrMaskRotoid:
+         db    2            ; wait in halts between changes
+
+; powered
+         dup  blk+1
+         db    6*8,-7 ; dot rotoid
+         db    6*8,0
+         edup
+
+         dup  blk+1
+         db    7*8,-7 ; dot engine
+         db    7*8,0
+         edup
+
+c = 5
+         dup  blk
+         db    c*8,-7
+         db    c*8,8+1
+         edup
+
+         db    1*8,0  ; rotoid
+         db    3*8,0  ; rotoid i
+
+         db    2*8,0  ; engine
+         db    4*8,0  ; engine i
+
+; end of block, number of halts
+         db    #80, #00
+
+blk=2
+atrMaskVoid:
+         db    2            ; wait in halts between changes
+
+c = 1
+         dup  blk
+         db    c*8,-7
+         db    c*8,0
+         edup
+
+c = 2
+         dup  blk
+         db    c*8,-7
+         db    c*8,0
+         edup
+
+c = 3
+         dup  blk
+         db    c*8,-7
+         db    c*8,0
+         edup
+
+c = 4
+         dup  blk
+         db    c*8,-7
+         db    c*8,0
+         edup
+c = 5
+         dup  blk
+         db    c*8,-7
+         db    c*8,0
+         edup
+c = 6
+         dup  blk
+         db    c*8,-7
+         db    c*8,0
+         edup
+c = 7
+         dup  blk
+         db    c*8,-7
+         db    c*8,0
+         edup
+
+; end of block, number of halts
+         db    #80, #00
+
+                        ; width, height, data for each line....
+dtaPatt:        db      #20,#06,#55,#ff,#55,#ff,#55,#aa
+
+;dtaWater:       db      #20,#07,#43,#43,#43,#43,#0a,#4a,#4a
+dtaWater:       db      #20,#0a,#04,#44,#47,#06,#05,#45,#45,#4d,#4d,#0d
+dtaSky:         db      #20,#09,#07,#07,#07,#07,#07,#07,#07,#47,#46
+
+dtaPlanet:      db      #20,#20
+                db      #00, #55,#00,#55,#00,#55,#aa,#55,#aa,#55,#ff,#55,#ff,#ff,#ff,#ff
+                db      #ff,#ff,#ff,#ff,#ff,#ff,#ff,#ff,#ff,#ff,#ff,#ff,#ff,#ff,#ff,#ff
+
+dtaCity:        db      #20,12
+                db      #ff,#ff,#55,#aa,#00,#55,#aa,#00,#aa,#00,#00,#55
+
+dtaCalpis:      db      #05,#06
+                ds      #06,#00
+
+                        ;from: posx, posy, to: posx, posy, width, height, mode
+mirrLine:       mirr    0,#a0,0,#af,#20,#07,%11000000
+
+/*
+;------------- init screen
+bpx_intrd:     atwin   #0606,17,11,bpx_intrd.dta, 0, o0
+.dta:          db      #3f,1*9
+               db      1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7
+               db      6,7,6,5,6,5,4,5
+               db      #ff
+
+               db      #07,#47,#07,#47,#06,#46,#06,#46
+               db      #ff
+               db      #05,#45,#05,#45,#04,#04,#04,#04
+               db      #43,#03,#43,#03,#42,#42,#42,#42
+               db      #01
+               db      #ff
+
+bpx_intro:     clatt   0, 24, bpx_intro.dta, 1, o0
+.dta:          db      1*9, 1, #80
+;.data:         db      7*9, 5*9, 1*9, 1, #80
+*/
+
+scr_intro:
+.clatr:        clatt   0, 24, .flash, 1, o0
+.clout:        clatt   0, 24, .flout, 1, o0
+.flash:        db      63,127,63,127,63,55,47,39,31,23,15,2+64,3,#80
+.flout:        db      2+64,3,4,3,4,5,5,4,5,4,5,5,6,5,6,5,6,7,7,6,6,5,4,3,3,2,0,0,1,0,1,0,0,#80
+
+yp: = 7
+hg: = 2
+;atrDarkness1:  clatt   yp + 0*hg, hg, clattDark, 0, o0
+;atrDarkness2:  clatt   yp + 1*hg, hg, clattDark, 0, o0
+;atrDarkness3:  clatt   yp + 2*hg, hg, clattDark, 0, o0
+;atrDarkness4:  clatt   yp + 3*hg, hg, clattDark, 0, o0
+
+;clattDark:     db      1,2,3,4,5,6,7,#47,#46,#45,#45,#45,#45,#45,5,4,#43,#2,#ff
+
+;atrDarknessf:  clatt   0,24, clattDarkf, 1, o0
+;clattDarkf:    db      #38,#37,#47,#45,#42,#03,#02,#01,#00,#ff
+
+;atrDarknessw:  atwin   #0d12, 8, 2, atrDarkw, 0, o0
+;atrDarkw:      db      #42,#42,#42,#43,#43,#44,#44,#45,#45,#46,#47,#ff
+
+;atrDarknessw2: atwin   #0d12, 8, 2, atrDarkw2, 0, o0
+;atrDarkw2:     db      #47,#47,#47,#47,#47,#47,#47,#47,#47,#47,#47,#ff
+
+;atrDarknessw3: atwin   #0d12, 8, 2, atrDarkw3, 0, o0
+;atrDarkw3:     db      #47,#46,6,5,4,3,2,1,0,#ff
+
+;-------------- generic flash
+atrFlash:       clatt  0, 24, atrFlashDta, %10001101, o5
+atrFlashDta:    db     #7f,#7f
+atrFlashCol:    db     #45, #45, #ff
+
+;-------------- vtxt flash
+atrVtxtFlash:   clatt  0, 24, atrVtxtFlash.dta, %00000001, o0
+.dta:           db     #6d, #7f, #6d, #45, #05, #ff
+
+;-------------- screen flash
+atrScrFlash:    clatt  0,24, dataSF, %10000001,o5
+dataSF:         ds     17
+
+;-------------- boot alien eye
+atrMachine:     atwin   #070a,8,6,atrMachineData, %00000010, o0
+atrMachineData: db      #02,0,0,#ff
+
+/*
+;rectangle fill
+        STRUCT rctf
+posx:   db     0         ; char
+posy:   db     0
+wdth:   db     0         ; char
+hght:   db     0
+fill:   db     0
+mode:   db     0         ; 0-1  00 - put, 01 - or, 10 - and, 11 xor
+                         ; 2    vram addr : 0=#4000, 1=#c000
+                         ; 3    rotate gfx: 0=don't, 1=rrc <fill> every next line
+                         ; 4    attributes
+        ENDS
+*/
+
+;-------------------------------------------------------------------------------
+; map HUD
+;-------------------------------------------------------------------------------
+
+;.sunrct:  rctf .px,.py,.wh,#05,#47,%00010000
+
+rctScale1:  rctf  #12,#08,#0e,#02,#45,%00010000
+rctScale2:  rctf  #00,#10,#02,#0a,#43,%00010000
+rctTrace:   rctf  #00,#70,#18,#06,#04,%00010000
+rctGraph:   rctf  #1a,#70,#06,#06,#44,%00010000
+rctPyram:   rctf  #0b,#18,#0a,#0b,#46,%00010000
+rctPyrm2:   rctf  #0b,#18,#0a,#0b,#43,%00010000
+
+;               clatt  b.posy, b.hght, w.data, b.mode, b.page
+; mode: bit 0=0 - no border,  =1 - border as paper
+;       bit 1=0 - no repeat,  =1 - repeat sequence
+;       bit 2=0 - no page,    =1 - page out memory
+;       bit 3=0 - no flip vrm =1 - flip vram (xor page value with %00001011)
+;       bit 7=0 - addr #5800  =1  #d8 addressing
+atrComp:
+.vram:         clatt   0, 19, .vd1, %00000010, o5
+.vd1:          db      4,1,0,0,4,#44,0,0,4,4,0,1,4,0,4,6,4,4,4,0,4,#ff
+
+;-------------------------------------------------------------------------------
+; main subtitles
+;-------------------------------------------------------------------------------
+
+rctSubAt:   rctf  #00,#a8,#20,#03,#00,%00010000
+rctSubAt2:  rctf  #00,#a8,#20,#03,#00,%00010100
+rctSubPx:   rctf  #00,#a8,#20,#18,#00,%00000000
+rctSubPx2:  rctf  #00,#a8,#20,#18,#00,%00000100
+
+                ;      pos,wdt,hght, data_ptr, mode, page, l_mod, h_mod
+tit_win:        pxwin  #a800, 32, 24, px_clear_dt, %10000001, o7, _nop, _nop
+                ; number of bytes, data...
+px_clear_dt:    db     02,#00,#00
+
+rctSubPx3:    rctf  #00,#00,#20,#a8,#00,%00000000  ; clear pixel window for hollistown
+rctSubAt3:    rctf  #00,#00,#20,#14,#08,%00010100  ; clear attrs top    / sky
+rctSubAt4:    rctf  #00,#a0,#20,#04,#00,%00010100  ; clear attrs bottom / town
+
+;-------------------------------------------------------------------------------
+; crater scene
+;-------------------------------------------------------------------------------
+;.sunrct:  rctf .px,.py,.wh,#05,#47,%00010000
+
+rctDrop1:   rctf  #09    ,#08*6,#10,#06,#45,%00010000
+rctDropL:   rctf  #0a    ,#08*8,#02,#02,#55,%00010000
+rctDropR:   rctf  #0a+12 ,#08*8,#02,#02,#55,%00010000
+rctDropM:   rctf  #0a+6  ,#08*8,#02,#02,#15,%00010000
+
+
+/*
+              STRUCT  atwin
+;atx           db     0
+;aty           db     0
+atxy:          dw     0
+width:         db     0
+hght:          db     0
+data:          dw     0
+mode:          db     0
+; mode: bit 0=0 - no border,  =1 - border as paper
+;       bit 1=0 - no repeat,  =1 - repeat sequence
+;       bit 2=0 - no page,    =1 - page out memory
+;       bit 3=0 - no flip vrm =1 - flip vram (xor page value with %00001011)
+;       bit 7=0 - addr #5800  =1  #d8 addressing
+page:          db     0
+addr:          dw     0
+ptr:           dw     0
+*/
+
+atrSubFadeIn:     atwin #1500, #20, 3, atrSubFadeIn.dta, %10000000, o5
+.dta:             db    1,1,2,2,3,3,4,4,5,5,6,6,7,7,#47,#47,#46,6,#45,5,5,#ff
+
+atrSubFadeOut:    atwin #1500, #20, 3, atrSubFadeOut.dta, %10000000, o5
+.dta:             db    6,#45,5,5,5,#41,#41,3,2,2,1,1,0,0,#ff
+
+atrTitFadeIn:     atwin #0800, #20, 8, atrTitFadeIn.dta, %00000000, o5
+.dta:             db    1,2,3,4,5,6,7,#47,#45,#ff
+
+atrTitFadeOut:    atwin #0800, #20, 8, atrTitFadeOut.dta, %00000000, o5
+.dta:             db    #47,7,6,5,4,3,2,3,2,1,2,1,0,1,0,#ff
+
+;-- Station
+x=4
+y=96 - 18*4
+atrVtxt1:         atwin x+y*32, 4, 10, vtxdta, 0, 0
+
+x=14
+y=128 - 12*4
+atrVtxt2:         atwin x+y*32, 4, 8, vtxdta, 0, 0
+
+x=18
+y=64 - 10*4
+atrVtxt3:         atwin x+y*32, 4, 7, vtxdta, 0, 0
+vtxdta:           db    8,16,24,32,56,1,48,3,7,4,5,#45,#ff
+
+;-- earth scene (unused)
+x=4
+y=96 - 18*4
+atrVtxt4:         atwin x+y*32, 4, 10, vtxdtb, 0, 0
+
+x=22
+y=156 - 21*4
+atrVtxt5:         atwin x+y*32, 6, 11, vtxdtb, 0, 0
+vtxdtb:           db    47,13,3,#43,#ff
+
+;-- solar system
+x=3
+y=152 - 14*4
+atrVtxt6:         atwin x+y*32, 2, 7, vtxdta, 0, 0
+
+x=19
+y=144 - 12*4
+atrVtxt7:         atwin x+y*32, 2, 6, vtxdta, 0, 0
+
+x=24
+y=96 - 12*4
+atrVtxt8:         atwin x+y*32, 4, 6, vtxdta, 0, 0
+
+;----
+
+atrVoidscrFI:     clatt #00,#18,atrVoidscrFI.dta,%10001100,o7
+.dta:             db    0,0,1,1,#41,#41,#45,#45,#46,#46,#47,#47,#80
+atrVoidscrFO:     clatt #00,#18,atrVoidscrFO.dta,%10001100,o7
+.dta:             db    #46,6,5,#45,4,#44,#43,3,2,#42,#41,1,0,1,0,#80
+atrVoidtxt:       clatt #06,#0b,atrVoidtxt.dta,%00000000,o5
+.dta:             db    1,0,0,0,#41,0,2,0,0,0,0,3,0,0,0,5,5,5,0,#47,#80
+
+;---- object specific executables
+engineAttrs:                                               ; rotoid | Nostromo landing scene
+.mod:   ld     de,atrEngine
+        ld     hl,#5800+#20*8+#0a
+        ld     bc,#20-13
+        ld     xl,2
+        ld     a,(de)
+        and    a
+        jp     p,1F
+        ld     de,atrEngine
+        ld     a,(de)
+1       inc    de
+        ld     (.mod+1),de
+1       ld     (hl),a : inc l : ld (hl),a
+     .5 inc    l
+        ld     (hl),a : inc l : ld (hl),a
+     .5 inc    l
+        ld     (hl),a : inc l : ld (hl),a
+        add    hl,bc
+        dec    xl
+        jr     nz,1B
+        ret
+
+atrEngine:
+;        db     #3f,#3f,#3f,#3f
+;        db     1,2,3,4,5,6,7,5,4,3,2,1,0,0,0,0
+        db     8+5,5,#47,7
+;        db     2,2,3,2,2,3,3,2,2,3,3,2,2,3,3,2
+        db     #ff
+
+        MODULE rotoid
+starCity:         dstar    #2162, #faf2, 32, 0, 128, 0 , 255
+starPlanet:       dstar    #89ad, #2839, 48, 8, 131, 0 , 255
+starCalpamos:     dstar    #2162, #faf2, 96, 0, #a0, 0 , 255
+starEscape:       dstar    #4562, #1af2, 64, 0, #a0, 0 , 255
+starCalpis:       dstar    #1010, #aaaa, 48, 0, #a0, 0 , 80
+starLanding:      dstar    #7291, #71fd, 64, 8, 167, 96, 255
+starCalstat:      dstar    #9871, #1177, 64, 8, 170, 0 , #b0
+starEarth:        dstar    #1928, #acd2, 96, 8, 167, 0 , 255
+starHollis:       dstar    #abcd, #5a5a, 96, 0,  80, 0 , 255
+
+; dithering matrices
+dthData:
+.v0:                            ; 4x4 ordered
+        db     1,8,2,10         ; 1,... modified matrix to have black and white) 0,... standard matrix
+        db     12,4,14,6
+        db     3,11,1,9
+        db     15,7,13,5
+
+.v1:                            ; 2X2 ordered
+        db     1,15,1,15
+        db     7,3,7,3
+        db     1,15,1,15
+        db     7,3,7,3
+
+.v2:    db     01,02,03,05         ; 1,... modified matrix to have black and white) 0,... standard matrix
+        db     02,03,04,07
+        db     03,04,06,08
+        db     09,05,07,09
+
+
+; -------------
+; cosinus table
+costab:
+        db    #7F, #7E, #7E, #7D, #7C, #7B, #79, #77
+        db    #75, #72, #6F, #6C, #69, #65, #61, #5D
+        db    #59, #54, #4F, #4A, #45, #40, #3A, #35
+        db    #2F, #29, #23, #1D, #17, #11, #0A, #04
+        db    #FE, #F8, #F1, #EB, #E5, #DF, #D9, #D3
+        db    #CD, #C7, #C2, #BC, #B7, #B2, #AD, #A9
+        db    #A4, #A0, #9C, #98, #95, #91, #8E, #8C
+        db    #89, #87, #85, #84, #82, #81, #81, #81
+
+        ENDMODULE

@@ -1,0 +1,130 @@
+/*
+Poznamky od mborika:
+ - ffnt4 = Programmer_osg.fzx
+ - ffnt5 = DigitalDisco.fzx
+
+KRscKittens  [w: 14ch, h: 11px]
+KRscInvaders [w:  6ch, h: 45px]
+KRscSinDiKat [w: 15ch, h: 16px]
+KRscEnginy   [w: 12ch, h: 11px]
+*/
+
+; TEXT data
+                macro   fzexe par,exe
+                db      KFzxExe, par
+                dw      exe
+                endm
+
+                macro   fzexe16 par1,par2,exe
+                db      KFzxExe16, par1, par2
+                dw      exe
+                endm
+
+                macro   fzfont font
+                db      KFzxFont
+                dw      font
+                endm
+
+                macro   fzmargin posx
+                db      KFzxMargin, posx
+                endm
+
+                macro   fztab tab
+                db      KFzxTab, tab
+                endm
+
+                macro   fzlgap spc
+                db      KFzxLGap, spc
+                endm
+
+
+a:  = #0a
+lm: = #30
+mm: = #70
+
+        OUTPUT "bin/end_titles.bin"
+        PHASE  temp3k
+/*
+fzTitles1:
+        sfzx     ffnt4,.text,8,0
+.text:  db       22,176,8
+*/
+        fzfont ffnt4
+        fzlgap 12
+        fztab 12
+        db  "you've finally reached the end of demo by", a
+        fzexe16  9,KRscKittens,unpackHdi          ; ------- image
+;--
+        fztab 79
+        db  "in cooperation with", a
+        fzexe16  13,KRscInvaders,unpackHdi          ; ------- image
+        fztab 62
+        db  a, "under the supervision of", a
+        fzexe16  9,KRscSinDiKat,unpackHdi          ; ------- image
+        db  a, "original soundtrack by", a
+        fzfont ffnt5
+        fzmargin 118
+        db  "AKI", a
+        db  ". . .", a, a
+        fzmargin 0
+        fztab 69
+        db  "production team", a
+        fzfont ffnt4
+        fztab 68
+        db  "CODE"
+        fztab 155
+        db  "GRAPHICS", a
+
+        fzlgap 9
+        fztab 54
+        db  "baze busy"
+        fztab 152
+        db  "hepterida", a
+        fztab 44
+        db  "mborik mike"
+        fztab 140
+        db  "mborik mike", a
+        fzlgap 12
+        fztab 46
+        db  "omega ped"
+        fztab 142
+        db  "omega z00m", a
+
+        fzlgap 9
+        fzmargin 102
+        db  " SUPPORT", a
+        db  "ellvis ikon", a, a, a
+
+        fzmargin 0
+        fztab 43
+        db  "directed and linked together by", a
+        fztab 86
+        db  "mborik & omega", a, a
+        fztab 98
+        db  "powered by", a
+        fzexe16  10,KRscEnginy,unpackHdi          ; ------- image
+
+        fzfont ffnt5
+        fzlgap 20
+        fztab 68
+; -- tuto neviem ako zadat znak copyright :[
+        db  a, "copyright © 2023", a
+
+        fzfont ffnt4
+        fzlgap 8
+        fztab 42
+        db  "special thanks to all organizers,", a
+        fzlgap 12
+        fztab 56
+        db  "visitors and supporters of", a
+
+        fzfont ffnt5
+        fztab 98
+        db  "FOReVER", a
+        fztab 89
+        db  "demoparty", a
+        fzexe    #e0,waitFrames
+        db  a
+        db  #ff
+        ENT
+        OUTEND

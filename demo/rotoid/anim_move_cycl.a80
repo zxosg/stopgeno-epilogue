@@ -1,0 +1,169 @@
+;v1 ---
+
+/* -- data structure
+        db      count_reset
+        db      delay
+        db      count_current
+        dw      speed_cur
+        dw      accel
+        db      speed_v0
+        db      offset to base address
+*/
+/*
+.moixCyc:
+        pop     hl
+        pop     iy
+
+        dec     (iy+SmoveCyc.delay)
+        ret     nz
+        inc     (iy+SmoveCyc.delay)
+        dec     (iy+SmoveCyc.count)
+        jr      nz,1F
+
+;-- invert speed and acceleration
+        ld      a,(iy+SmoveCyc.count_reset)
+        ld      (iy+SmoveCyc.count),a
+        xor     a
+        ld      (iy+SmoveCyc.speed_cur),a
+        ld      (iy+SmoveCyc.speed_cur+1),a
+        sub     (iy+SmoveCyc.speed_v0)
+        ld      (iy+SmoveCyc.speed_v0),a        ; invert speed
+        xor     a                               ;
+        sub     (iy+SmoveCyc.accel)             ;
+        ld      (iy+SmoveCyc.accel),a           ;
+        sbc     a,a                             ;
+        sub     (iy+SmoveCyc.accel+1)           ;
+        ld      (iy+SmoveCyc.accel+1),a         ; neg16 - invert acceleration
+
+;-- accelerate
+1       ld      bc,(iy+SmoveCyc.speed_cur)
+        ld      hl,(iy+SmoveCyc.accel)
+        add     hl,bc
+        ld      (iy+SmoveCyc.speed_cur),hl
+
+        ld      a,(iy+SmoveCyc.speed_v0)
+        add     a,h
+        ld      e,a
+        add     a,a
+        sbc     a,a
+        ld      d,a                        ; de=signed current speed
+
+        ld      a,(iy+SmoveCyc.offset)
+
+        ld      bc,SmoveCyc                ; exe_list to next item
+        add     iy,bc                      ;
+        push    iy                         ; !!
+
+        ld      c,a
+        ld      a,c
+        add     a,a
+        sbc     a,a
+        ld      b,a                        ; bc=signed offset
+
+        add     ix,bc                      ; bc=offset
+        ld      l,(ix+0)
+        ld      h,(ix+1)                   ; hl=current value
+        ld      a,(rotoid.fpstmp)                 ; fps mod
+        ld      b,a
+1       add     hl,de                      ; de=increment
+        djnz    1B
+        ld      (ix+0),l                   ; save, exit
+        ld      (ix+1),h
+        jp      @exeptr.loop
+
+*/
+
+/* -- data structure
+        db      count_reset
+        db      delay
+        db      count_current
+        dw      accel_temp
+        dw      accel_adder
+        dw      v0
+*/
+
+; v2 -------
+.moveCycf:
+        ld      a,(@fps)
+        jr      1F
+
+.moveCyc:
+        ld      a,1
+1       ld      (fpstmp),a
+        pop     hl
+        pop     hl
+        ld      e,(hl)  : inc hl           ; count reset
+        neg
+;- delay
+        add     a,(hl)                     ; decrease counter of delay        inc     hl
+        jr      nc,1F                      ; nc=delay expired
+        ld      (hl),a                     ; c= delay more, store current counter
+        inc     hl                         ; count
+
+        ld      bc,7
+        add     hl,bc
+        push    hl
+        jp      @exeptr.loop               ; no action, return
+
+1       inc     hl
+        ld      a,(rotoid.fpstmp)
+        neg
+;- counter
+        add     a,(hl)                     ; decrease counter of iterations
+;        jr      c,1F                       ; c=run core and continue in countdowns
+        jr      nz,1F                       ; c=run core and continue in countdowns
+
+        push    hl
+        inc     hl                         ; skip counter
+
+        xor     a
+        ld      (hl),a  : inc hl           ; reset speed_current
+        ld      (hl),a  : inc hl           ;
+;--
+        sub     (hl)
+        ld      (hl),a  : inc hl
+        sbc     a,a
+        sub     (hl)
+        ld      (hl),a  : inc hl
+        xor     a
+        sub     (hl)
+        ld      (hl),a                     ; neg v0
+        pop     hl
+        ld      a,e                        ; reset counter
+;- core
+1       ld      (hl),a  : inc hl           ; store counter
+        ld      (.ctmp+1),hl               ; save temp address
+        ld      e,(hl)  : inc hl           ; temp
+        ld      d,(hl)  : inc hl           ;
+        ld      c,(hl)  : inc hl           ; accel_adder
+        ld      b,(hl)  : inc hl           ;
+        ex      de,hl
+        add     hl,bc
+.ctmp:  ld      (#5555),hl                 ; store current speed value
+        ex      de,hl
+
+        ld      a,(hl)  : inc hl
+        add     a,d
+        ld      e,a
+        add     a,a
+        sbc     a,a
+        ld      d,a                        ; de=signed current speed
+
+        ld      c,(hl) :  inc hl           ; c=offset to base address
+        ld      a,c
+        add     a,a
+        sbc     a,a
+        ld      b,a                        ; bc=signed offset
+
+        push    hl
+        add     ix,bc                      ; bc=offset
+        ld      l,(ix+0)
+        ld      h,(ix+1)                   ; hl=current value
+
+1       ld      a,(rotoid.fpstmp)                 ; fps mod
+        ld      b,a
+1       add     hl,de                      ; de=increment
+        djnz    1B
+        ld      (ix+0),l                   ; save, exit
+        ld      (ix+1),h
+        jp      @exeptr.loop

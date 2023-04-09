@@ -1,0 +1,146 @@
+        MODULE egl
+vprint:
+.run:
+        call  c,.init
+.chr:
+        ld    c,(ix+vpxy.curx)
+        ld    b,(ix+vpxy.cury)
+        call  @PixCY2Adr
+        ld    a,(ix+vpxy.pdr)
+        and   #80
+        or    h
+        ld    h,a
+
+        ld    (ix+vpxy.vrm),hl
+
+        ld    hl,(ix+vpxy.ctxt)
+        ld    a,(hl)
+        and   a
+        ret   z                         ; ret when end of text reached
+
+        inc   hl
+        ld    (ix+vpxy.ctxt),hl         ; next char
+
+        cp    13                        ; cr - move cursor
+        jr    nz,1F
+        inc   (ix+vpxy.curx)
+        ld    b,(ix+vpxy.aty)           ; copy y-pos
+        ld    (ix+vpxy.cury),b
+        jr    .chr
+
+1       cp    #20
+        ld    hl,space
+        jr    z,.chdrw
+        cp    '0'
+        jr    c,.chr                   ; less than 0
+        cp    '9'+1
+        jr    nc,1F                     ; higher than 9
+
+        ld    hl,(ix+vpxy.fnt)          ; numbers are after charset
+        ld    de,4*26
+        add   hl,de
+        sub   '0'
+        jr    .charp
+
+1       cp    'a'
+        jr    c,.chr
+        cp    'z'+1
+        ret   nc
+        sub   'a'
+        ld    hl,(ix+vpxy.fnt)
+.charp:
+        add   a,a
+        add   a,a
+        ld    e,a
+        ld    d,0
+        add   hl,de
+.chdrw: ld    de,(ix+vpxy.vrm)
+        ld    b,4
+
+1         ld    a,(de)
+          or    (hl)
+          bit   0,(ix+vpxy.pdr)         ; or with vram or overwrite
+          jr    nz,2F
+          ld    a,(hl)
+2         ld    (de),a
+          inc   hl
+          call  vidd
+          djnz  1B
+        ld    a,(ix+vpxy.cury)
+        sub   4
+        ret   c
+        ld    (ix+vpxy.cury),a
+        ret
+
+/*
+;------------------
+        bit   0,(ix+vpxy.pdr)
+        ld    a,_orhl                   ; bit 0=1 then OR with screen
+        jr    nz,1F
+        ld    a,_ldahl                  ; bit 0=0 then overwrite screen
+1       ld    (.lpmd),a
+        ld    b,4
+
+1         ld    a,(de)
+.lpmd:    or    (hl)
+          ld    (de),a
+          inc   hl
+          call  vidd
+          djnz  1B
+        ld    a,(ix+vpxy.cury)
+        sub   4
+        ret   c
+        ld    (ix+vpxy.cury),a
+        ret
+
+;------------------
+
+        dup   3
+          ld    a,(de)
+          or    (hl)
+          ld    (de),a
+          inc   hl
+          call  vidd
+        edup
+          ld    a,(de)
+          or    (hl)
+          ld    (de),a
+        ld    a,(ix+vpxy.cury)
+        sub   4
+        ret   c
+        ld    (ix+vpxy.cury),a
+        ret
+
+.init:  ld    c,(ix+vpxy.atx)
+        ld    b,(ix+vpxy.aty)
+        ld    (ix+vpxy.curx),c
+        ld    (ix+vpxy.cury),b
+
+        bit   7,(ix+vpxy.pdr)
+        ld    a,#c9
+        jr    z,1F
+        xor   a
+1       ld    (PixCH2AdrVrm.mod),a
+
+        ld    hl,(ix+vpxy.txt)
+        ld    (ix+vpxy.ctxt),hl
+        ret
+
+PixCH2AdrVrm:
+        call  @PixCY2Adr
+.mod:   ret
+        set   7,h
+        ret
+*/
+
+.init:  ld    c,(ix+vpxy.atx)
+        ld    b,(ix+vpxy.aty)
+        ld    (ix+vpxy.curx),c
+        ld    (ix+vpxy.cury),b
+        ld    hl,(ix+vpxy.txt)
+        ld    (ix+vpxy.ctxt),hl
+        ret
+
+space:  ds      4,0
+font1:  incbin  "fonts/alien_v1_1x4_AZ09.bin"
+        ENDMODULE

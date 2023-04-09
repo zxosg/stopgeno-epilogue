@@ -1,0 +1,210 @@
+            MODULE vscroll
+width:  = 32
+height: = 56
+cpos:   = (32-width)>>1     ; constant starting x pos
+ypos:   = 8                 ; constant starting y pos
+; print/copy line height
+line:   = 16
+; line gap
+lgap:   = line+0
+
+; scroll split table
+tabvscroll:
+;vram 0
+            db     o5+8                                    ; page
+            db     height
+            dw1_CY cpos,ypos-1                             ; destination
+            dw1_CY cpos,ypos+0                             ; source
+
+            db     o5+8
+            db     height
+            dw1_CY cpos,ypos-1 + height
+            dw1_CY cpos,ypos+0 + height
+
+            db     o5+8
+            db     height
+            dw1_CY cpos,ypos-1 + height*2
+            dw1_CY cpos,ypos+0 + height*2
+
+;vram 1
+            db     o7
+            db     height
+            dw1_CY cpos,ypos
+            dw1_CY cpos,ypos+1
+
+            db     o7
+            db     height
+            dw1_CY cpos,ypos-0 + height
+            dw1_CY cpos,ypos+1 + height
+
+            db     o7
+            db     height
+            dw1_CY cpos,ypos-0 + height*2
+            dw1_CY cpos,ypos+1 + height*2
+
+            db     0
+
+;copy new line from screen 0 to 1
+line01:
+            db     o7
+            db     1
+            dw1_CY cpos,ypos-line-1 + height*3
+            dw0_CY cpos,ypos-line-1 + height*3
+
+;enter / next line
+tabenter:
+            db     o5
+            db     line
+            dw1_CY cpos,ypos-line + height*3
+            dw0_CY cpos,ypos+0 + height*3
+
+
+ptvs:       dw     tabvscroll
+toggle:     db     0
+endmark:    db     0                    ; #ff when fzxprint ff is processed
+
+run0:       ld     (run.mlgap+1),a
+            ld     hl,tabvscroll
+            ld     (ptvs),hl
+
+run:        ld     hl,(ptvs)             ; scroller
+.go:        ld     a,(hl) : inc hl      ; page number (0=reload table)
+            and    a
+            jr     z,.reload
+            page_am                     ; do not store page number into @page
+            and    8
+            ld     (@ivram),a           ; keep vram when returned from interrupt
+            ld     a,(hl) : inc hl      ; height
+            ld     xl,a
+            ld     e,(hl) : inc hl
+            ld     d,(hl) : inc hl
+            ld     c,(hl) : inc hl
+            ld     b,(hl) : inc hl
+            ld     (ptvs),hl
+            ld     hl,bc
+.copy:
+1           push   hl,de
+3           REPT   width
+              ldi
+            ENDR
+            pop    de,hl
+            call   vid
+            call   vidd
+            dec    xl
+            jr     nz,1B
+            ret
+
+.reload:    ld     hl,line01
+            call   run.go
+
+.mlgap:     ld     a,lgap
+            dec    a
+            jp     nz,run0
+;            border 4
+            ld     hl,tabenter
+            call   run.go
+;            border 0
+.mlg:       ld     a,lgap                           ; modify to change gap between lines
+            ld     (toggle),a
+            jp     run0
+
+lineGap: = run.mlg+1
+
+clearline:
+;            border 4
+            ld     (spp+1),sp
+            ad_CY  #1f,ypos + height*3
+            ld     hl,ad + #4000
+            ld     de,#00
+            ld     c,line
+2           ld     b,4
+            inc    hl
+            ld     sp,hl
+            dec    hl
+1
+         .4 push   de
+            djnz   1B
+
+            inc    h
+            ld     a,h
+            and    7
+            jr     nz,1F
+            ld     a,l
+            add    a,32
+            ld     l,a
+            jr     c,1F
+            ld     a,h
+            sub    8
+            ld     h,a
+1           dec    c
+            jr     nz,2B
+
+spp:        ld     sp,#5555
+;            border 4
+            ret
+init:
+            callix mmu.clsxi, #4700                     ; xl-pix xh-attr
+
+            ld     hl,#5b00-#80
+            ld     d,h,e,l
+            inc    de
+            ld     bc,#7f
+            ld     (hl),#00
+            ldir
+            ld     hl,#5820
+            ld     de,#5a60
+            ld     ix,#5800
+            ld     b,32
+            ld     a,#03
+1           ld     (hl),a
+            ld     (de),a
+            ld     (ix),0
+            inc    xl
+            inc    l
+            inc    e
+            djnz   1B
+            call   mmu.cpscr57
+            xor    a
+            ld     (toggle),a
+            ret
+
+stars:      ld     a,(@ivram)
+            or     o7
+            page_am
+            ld     a,r
+            ld     l,a
+            and    #3f
+            ld     h,0
+            ld     l,(hl)
+            ld     h,(hl)
+.seed:      ld     de,#0101
+            add    hl,de
+            ld     (.seed+1),hl
+
+            ad_CY  0,56*3-5         ; pos y
+            ld     de,ad+#4000
+
+            ld     a,h
+            and    a
+            ret    m
+            ld     a,l
+            rlca
+            rlca
+            rlca
+            and    #1f
+            or     e
+            ld     e,a
+            ld     a,l
+            and   7
+            add   a,a
+            add   a,a
+            add   a,a
+.rs:        add   a,#c6         ; set 0,a | c7-a, c6-(hl)
+            ld    (.set),a
+            xor   a
+            ex    de,hl
+            db    #cb           ; cb prefix
+.set:       db    #55
+            ret
+
+            ENDMODULE

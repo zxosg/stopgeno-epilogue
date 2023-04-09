@@ -1,0 +1,10 @@
+; shriu
+cls:
+    xor a
+    ld hl,$5b00
+;   ld h,$5b            ; this one deletes printer buffer
+    dec hl
+    ld (hl),a
+    or (hl)
+    jr z,$-3
+    ret

@@ -1,0 +1,353 @@
+        MODULE egl
+
+/*
+          STRUCT hdi
+bwidth:   db     0
+height:   db     0
+atrsize:  db     0
+          ENDS
+*/
+          STRUCT drwhdi
+vram:     dw     #4000
+pgfx:     dw     #0000
+mode:     db     0                      ; 0=blit, 1=or, 2=xor
+posx:     db     0
+cury:     db     0
+          ENDS
+
+drawLineHdi:
+          jr     nc,1F
+          ld     (ix+drwhdi.cury),0     ; initialize current line
+
+1         ld     a,(@isUnpackedHdi)       ; test if data are ready and unpacked
+          and    a
+          ret    z
+
+          ld     a,(@page)
+          ex     af,af
+
+          ld     a,(@ivram)
+          or     o7
+          page_am
+
+          ld     hl,(ix+drwhdi.pgfx)
+          ld     a,(hl) : inc hl        ; width
+          ld     (.wdt+1),a
+          ld     e,a
+          ld     a,(ix+drwhdi.cury)     ; current drawn line
+          cp     (hl)   : inc hl        ; height
+          inc    hl                     ; skip attr size.
+          ret    z
+          push   hl                     ; HL=gfx HDI addr
+          call   @rotoid.math.mul0808   ; hl=e*a
+          pop    de
+          add    hl,de                   ; hl = addr of gfx
+          inc    (ix+drwhdi.cury)       ; increment current line
+          ld     a,(ix+drwhdi.vram)
+          ld     (.cpe+1),a             ; save low vram byte
+          add    a,(ix+drwhdi.posx)
+          ld     e,a
+          ld     d,(ix+drwhdi.vram+1)
+
+.wdt:     ld     bc,0
+          ld     a,(ix+drwhdi.mode)
+          and    #7f
+          jr     z,.blt0
+          dec    a
+          jr     z,.blt1
+          dec    a
+          jr     z,.blt2
+          jr     .ret
+
+.blt2:    ld     a,_xorhl
+          jr     1F
+
+.blt1:    ld     a,_orhl
+1         ld     (.mod),a
+
+          ld     b,c
+1         ld     a,e
+          and    #e0
+.cpe:     cp     #55
+          jr     nz,.nodrw
+
+          ld     a,(de)
+.mod:     or     (hl)
+          ld     (de),a
+
+;          bit    7,(ix+drwhdi.mode)     ; test of drawing to 2nd vram #c000
+;          jr     z,.nodrw
+;          set    7,d
+;          ld     (de),a
+;          res    7,d
+
+.nodrw:   inc    hl
+          inc    de
+3         djnz   1B
+          jr     .ret
+
+.blt0:    push   hl,de,bc
+          ldir
+          pop    bc,de,hl
+
+          bit    7,(ix+drwhdi.mode)     ; shall be line copied to #c000? (titles)
+          jr     z,.ret
+          set    7,d
+          ldir
+
+.ret      ex     af,af
+          page_am
+          ret
+
+/*
+draw_gfx:
+        call  c,.init
+        ld    a,(ix+gfx.hght)
+        and   a
+        ret   z
+        dec   a
+        ld    (ix+gfx.hght),a
+        ld    a,(@page)
+        ex    af,af
+        ld    a,(ix+gfx.page)
+        and   #7f
+        page_am
+        ld    de,(ix+gfx.vram)
+        ld    hl,(ix+gfx.data)
+        ld    bc,(ix+gfx.wdth)
+        push  de
+        ld    a,(ix+gfx.mode)
+        cp    2
+        ld    a,#b0          ; poke LDIR
+        jp    nc,.ldxr
+        ld    a,#b8          ; poke LDDR
+.ldxr:  ld    (.lmd),a
+        db    #ed
+.lmd:   db    #55
+        ex    af,af
+        page_am
+        ld    a,(ix+gfx.mode)
+        cp    4
+        jr    z,.spop
+        pop   de
+.spop:  ld    (ix+gfx.data),hl
+        ex    de,hl
+        and   a
+        jr    z,.fup
+        cp    1
+        ld    bc,-#20
+        jr    z,.a1
+        cp    2
+        jr    z,.fdown
+        cp    3
+        jr    z,.a2
+        ld    (ix+gfx.vram+0),hl
+;        pop   hl
+        ret
+
+.a2:    ld    bc,#20
+.a1:    add   hl,bc
+        jr    .rest
+
+.fup:   call  PixUppAdr
+.rest:  ld    (ix+gfx.vram),hl
+        ret
+
+.fdown: call  vid
+        ld    (ix+gfx.vram),hl
+        ret
+
+.init:  ld       bc,(ix+gfx.atxy)
+        bit      0,(ix+gfx.mode)
+        call     z,PixCY2Adr
+        bit      0,(ix+gfx.mode)
+        call     nz,AtrXY2Adr
+        ld       a,(ix+gfx.page)
+        and      #80
+        or       h
+        ld       (ix+gfx.vram),l
+        ld       (ix+gfx.vram+1),a
+        ld       hl,(ix+gfx.pdata)
+        ld       (ix+gfx.data),hl
+        ld       a,(ix+gfx.phght)
+        ld       (ix+gfx.hght),a
+        ret
+*/
+
+blit_gfx:
+        call     c,.init
+        ld       a,(ix+blit.cstp)
+        dec      a
+        ret      m
+        ld       (ix+blit.cstp),a
+
+        ld       a,(@page)
+        ex       af,af
+        ld       a,(ix+blit.page)
+        and      #7f
+        page_am
+
+        ld       de,(ix+blit.vram)
+        ld       hl,(ix+blit.pdata)
+        exx
+        ld       b,(ix+blit.hght)
+.lp1:   exx
+        ld       c,(ix+blit.wdth)
+        ld       b,0
+        ld       a,e
+        ldir
+        ld       e,a
+        call     vidd
+        exx
+        djnz     .lp1
+
+        exx
+        ex       af,af
+        page_am
+
+        ld       a,(ix+blit.dir)
+        and      #7f
+        dec      a
+        jp       m,.up          ;a=0
+        jp       z,.down        ;a=1
+        dec      a
+        jp       z,.left        ;a=2
+        dec      a
+        jp       z,.right       ;a=3
+        ret
+/*
+        jr       z,.up
+        cp       1
+        jr       z,.down
+        cp       2
+        jr       z,.left
+        cp       3
+        jr       z,.right
+        ret
+*/
+
+.up:    ld       hl,(ix+blit.vram)
+        call     PixUppAdr
+        ld       (ix+blit.vram),hl
+        ret
+
+
+.down:  ld       hl,(ix+blit.vram)
+        call     vid
+        ld       (ix+blit.vram),hl
+        ret
+
+.left:  dec      (ix+blit.vram)
+        ret
+
+.right: inc      (ix+blit.vram)
+        ret
+
+.init:
+;        ld_bc_x  ix,blit.atxy
+        ld       bc,(ix+blit.atxy)
+        call     PixCY2Adr
+        ld       a,(ix+blit.page)
+        and      #80
+        or       h
+        ld       (ix+blit.vram),l
+        ld       (ix+blit.vram+1),a
+        ld       a,(ix+blit.stps)
+        ld       (ix+blit.cstp),a
+        ret
+
+pixwin:
+        call     c,.init
+
+        ld       a,(ix+pxwin.cnt)
+        dec      a
+        ret      m
+        ld       (ix+pxwin.cnt),a
+        exx
+        ld       hl,(ix+pxwin.vram)
+        ld       b,0
+        ld       c,(ix+pxwin.widt)
+        exx
+        ld       de,(ix+pxwin.ptr)
+        ld       a,(de)
+        inc      de
+        ld       (ix+pxwin.ptr),de
+
+        ld       (.savesp+1),sp
+        ld       e,a
+        ld       d,a
+
+        ld       a,(@page)
+        ex       af,af
+
+        bit      0,(ix+pxwin.mode)   ; bit 0 - paging
+        jr       z,1F
+        ld       a,(ix+pxwin.page)
+        page_am
+1       ld       c,(ix+pxwin.widt)
+        sra      c
+        ld       a,16
+        sub      c
+        ld       (.modjr),a
+        ld       b,(ix+pxwin.hght)
+        ld       c,(ix+pxwin.widt)
+
+.loop:  exx
+        ld       d,h
+        ld       e,l
+        add      hl,bc
+        ld       sp,hl
+        ld       l,e
+        ld       h,d
+
+        inc      h
+        ld       a,h
+        and      7
+        jr       nz,.l2
+        ld       a,l
+        add      a,32
+        ld       l,a
+        jr       c,.l2
+        ld       a,h
+        sub      8
+        ld       h,a
+
+.l2:    exx
+        db       #18                   ; jr
+.modjr: db       #00
+        DUP      16
+          push     de
+        EDUP
+.modh:  dw       0
+.modl:  dw       0                     ; modifier, nop, roll data every line
+        djnz     .loop
+.savesp:
+        ld       sp,$5555
+        bit      0,(ix+pxwin.mode)     ; ret without paging
+        ret      z
+        ex       af,af
+        page_am
+        ret
+
+.init:  ld       hl,(ix+pxwin.data)
+        ld       a,(hl)
+        ld       (ix+pxwin.cnt),a
+        inc      hl
+        ld       (ix+pxwin.ptr),hl
+        ld       b,(ix+pxwin.atxy+1)
+        ld       c,(ix+pxwin.atxy)
+        call     PixCY2Adr
+;        ld       a,l
+;        add      a,(ix+pxwin.widt)
+        ld       (ix+pxwin.vram),l
+        ld       a,(ix+pxwin.mode)     ; bit 7 vram is #40 or #c0
+        and      #80
+        or       h
+        ld       (ix+pxwin.vram+1),a
+        ld       hl,(ix+pxwin.modh)
+        ld       (.modh),hl
+        ld       hl,(ix+pxwin.modl)
+        ld       (.modl),hl
+        ret
+
+        ENDMODULE

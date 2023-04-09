@@ -1,0 +1,4 @@
+; input file:towerB.bin
+	defb  #02,#24,#FB,#00,#00,#00,#00,#00,#00,#00
+	defb  #01,#24,#00,#00,#1E,#FA,#E3,#FF,#0F,#0F
+	defb  #FF

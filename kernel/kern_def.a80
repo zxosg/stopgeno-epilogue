@@ -1,0 +1,40 @@
+; kernel constants
+        DEFINE KExeRun          1
+        DEFINE KExeLoop         2
+        DEFINE KExeWait         3
+        DEFINE KExeSwap         4
+        DEFINE KExeAt           5
+        DEFINE KExeUntil        6
+        DEFINE KExeAfter        7
+        DEFINE KExeConfig       8
+        DEFINE KExePeriodic     9
+        DEFINE KExeScheduler    10     ; not implemented yet: qdos-like scheduler
+;        DEFINE KExcLoop         0      ; deprecated     = Restart
+;        DEFINE KExcNoLoop       #c9    ; deprecated     = Idle
+
+; supporting definitions
+        DEFINE _scf     #37
+        DEFINE _nop     #00
+        DEFINE _halt    118
+        DEFINE _ldae    #7b
+        DEFINE _anda    #a7
+        DEFINE _ande    #a3
+        DEFINE _ore     #b3
+        DEFINE _xore    #ab
+        DEFINE _rra     #1f
+        DEFINE _cpnn    #fe
+        DEFINE _inca    #3c
+        DEFINE _deca    #3d
+        define _cpl     #2f
+        define _xora    #af
+        define _addan   #c6
+
+        define  _inchl  #23
+        define  _subhl  #96
+        define  _ldan   #3e
+        define  _ldahl  #7e
+        define  _orhl   #b6
+        define  _andhl  #a6
+        define  _xorhl  #ae
+        define  _addhl  #86
+        define  _exdehl #eb

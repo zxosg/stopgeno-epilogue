@@ -1,0 +1,73 @@
+; a: amplitude, c: offset, hl: adr
+; type 1
+;   / ---+                            
+;--/--+  | A               
+; /   |C |                          
+
+mkshp:	push hl
+     	exx
+     	ld   e,a
+     	ld   d,0
+     	sla  e
+     	rl   d
+     	neg
+     	ld   l,0
+     	ld   h,a
+     	exx
+     	ld   a,c
+     	exx
+     	add  a,h
+     	ld   h,a
+     	exx
+     	ld   b,0
+.l1	ld   (hl),a
+     	exx
+     	add  hl,de
+     	ld   a,h
+     	exx
+     	inc  hl
+     	djnz .l1
+     	pop  hl
+     	ret
+; a: amplitude, c: offset, hl: adr
+; type 2
+;    /\             
+; - /--\ -
+;  /    \           
+
+mkshu:	push hl
+     	exx                      
+     	ld   e,a
+     	ld   d,0
+     	sla  e
+     	rl   d
+     	sla  e
+     	rl   d
+     	neg
+     	ld   l,0
+     	ld   h,a
+     	exx
+     	ld   a,c
+     	exx
+     	add  a,h
+     	ld   h,a
+     	exx
+     	ld   b,80h
+.l2	ld   (hl),a
+     	exx
+     	add  hl,de
+     	ld   a,h
+     	exx
+     	inc  hl
+     	djnz .l2
+     	
+     	ld   b,80h
+.l3	exx
+     	sbc  hl,de
+     	ld   a,h
+     	exx
+     	ld   (hl),a
+     	inc  hl
+     	djnz .l3
+     	pop  hl
+     	ret

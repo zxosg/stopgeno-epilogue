@@ -1,0 +1,409 @@
+; rotoid scenes (27.04.2019)
+;-------------------------------------------------------------------------------
+
+scenes:
+.city:    dw .city_init
+          dw .city_erase
+          dw .city_draw
+
+.light:   dw .light_init
+          dw .light_erase
+          dw .light_draw
+
+.train:   dw .train_init
+          dw .train_erase
+          dw .train_draw
+
+.edit:    dw .edit_init
+          dw .edit_erase
+          dw .edit_draw
+
+.rckt:    dw .rckt_init
+          dw .rckt_erase
+          dw .rckt_draw
+
+.demo:    dw .demo_init             ; 1st item of the structure is pointer to init_data (routine)
+          dw .demo_erase            ; erase data
+          dw .demo_draw             ; draw data
+
+.space:   dw .space_init
+          dw .space_erase
+          dw .space_draw
+
+.doom:    dw .doom_init
+          dw .doom_erase
+          dw .doom_draw
+
+.city_init:
+          cnmScnXYZ      #fe00,#7e,#ffb0
+          cnmScrCenter   #80,#7f
+          cnmScnFar      #00
+          cnmScnFade     #00
+          cnmScrTopBot   32,128
+          cnmLightShade  #05
+          cnmLightBright #00,#07
+          cnmLightMode   #00
+          cnmLightPos    #d000,#100
+;          cnmMobPos     mobCity1, 0, 0, #20
+          callix        scrClear,#4700
+          callix        fillRct,.fill1
+          callix        fillRct,.fill2
+          call          scrCopy
+;          call          invDthPattern
+          ret
+
+.fill1:    rctf 0,#81,32,2,#ff
+.fill2:    rctf 0,#85,32,1,#aa
+
+.city_erase:
+          dw    makeStars.erase, starDemo
+          mdel   mobPyra1
+          mdel   mobPyra2
+;          mdel   mobPyra3
+          mdel   mobMoon1
+;          mdel   mobMoon2
+
+;          mdel   mobCity1
+;          mdel   mobCity2
+;          mdel   mobCity3
+          dw     0
+
+.city_draw:
+          dw    makeStars.draw, starDemo
+          mdraw  mobMoon1
+;          mdraw  mobMoon2
+;          mdraw  mobPyra3
+          mdraw  mobPyra2
+          mdraw  mobPyra1
+
+;          mdraw  mobCity1
+;          mdraw  mobCity2
+;          mdraw  mobCity3
+
+;--- animate
+          mMoveCnt scene.posx, 8, 0, #40, #00
+;          mMoveCnt scene.posz,  1, 0, #18, #00
+;          mMoveCnt scene.posz, -1, 0, #18, #38
+          mMoveCnt scene.far,    #10, 0, #40, 0
+          mMoveCnt scene.posz,   1, 0, #80, #40
+          dw     0
+
+.light_init:
+          cnmScnXYZ     64,0,0
+          cnmScrCenter  127,#50
+          cnmScnFar     #250
+          cnmScnFade    #000
+          cnmScrTopBot  16,128
+          cnmLightShade  #00
+          cnmLightBright #00,#07
+          callix        scrClear,#0700
+
+.offz:    = #00
+.lposz:  = 0
+.lmovez: = 8
+.lmovex: = 0
+
+          cnmMobPos     mobLigh2,    0,    0, .lposz
+          cnmMobPos     mobTrn1,   -200,   0, .offz+#30
+          cnmMobPos     mobRck3,   -200, -30, .offz+#80
+          cnmMobPos     mobStat,    200,   0, .offz+#140
+          ret
+
+.light_erase:
+;-- erase
+          dw    makeStars.erase, starDemo
+          mdel mobTrn1            ; mdel = call eraseMultiObject, ix_pointer to MOB data structure
+          mdel mobStat
+          mdel mobRck3
+          mdel mobLigh2
+          dw   0
+
+.light_draw:
+;-- draw
+          dw    makeStars.draw, starDemo
+          mSort 3                  ; sort z-positions of following objects
+;          mdraw mobTrn1
+          mdraw mobStat
+          mdraw mobRck3
+          mdraw mobLigh2
+;-- animate
+          dw moveXYZ, mobdef.posx, mobLigh2, .lmovex, #0000, .lmovez
+;          mMoveCnt    scene.posz,  4, 0, #40, #00
+          dw moveXYZ, 0, scene, -3, 0, 6
+          dw    0
+
+;----------------------------------
+.edit_init:
+          cnmScnXYZ     0,0,0
+          cnmScrCenter  127+56,0
+          cnmScnFar     #200
+          cnmScnFade    #100
+          cnmScrTopBot  0,191
+;          cnmMobPos     mobEdit, 0,  0, 50
+          cnmLightShade  #05
+          ret
+
+.edit_erase:
+          mdel mobEdit
+          dw   0
+.edit_draw:
+;          dw   drawGfxMob, gfxCity
+;          dw    editor.run, @seqment_ed
+          mdraw mobEdit
+          dw   0
+
+;---------------------------------
+.train_init:
+          cnmScnXYZ     0,0,0
+          cnmScrCenter  127,#50
+          cnmScnFar     #400    ;       #130
+          cnmScnFade    #300    ;       #000
+          cnmScrTopBot  16,144
+          rscunpack KRscCity2, res_tab
+          page_ar 88
+;          callix  fillRct, .train_init_fill
+          rscunpack KRscPillarA, res_tab
+          rscunpack KRscPillarB, res_tab
+; invert gfx
+          callix  invGfxMob , .gpillara1
+          callix  invGfxMob , .gpillarb1
+
+          callix  drawGfxMob, .gpillara1
+          callix  drawGfxMob, .gpillara2
+          callix  drawGfxMob, .gpillara3
+          callix  drawGfxMob, .gpillara4
+          call    scrCopy
+/*
+          callix  @convertOffset, xtrain1a
+          callix  @convertOffset, xtrain1b
+          callix  @convertOffset, xtrain2a
+          callix  @convertOffset, xtrain2b
+*/
+
+          cnmLightShade  #08
+          cnmLightBright #00,#07
+          cnmMobPos      mobLight, #c900, 0, #80
+          cnmMobPos      mobTrn1,  750,-40,77
+          cnmMobPos      mobTrn2, -450,145,105
+          callix         drawMultiObject,mobLight
+          call           blkDthPattern
+          ret
+
+.train_init_fill: rctf  0,0,32,64,#ff
+
+.train_erase:
+;          mdel  mobTrn1
+          dw     drawGfxMob, .gpillara1e
+          dw     drawGfxMob, .gpillara2e
+          dw     drawGfxMob, .gpillara3e
+          dw     drawGfxMob, .gpillara4e
+
+          dw     drawGfxMob, .gpillara1f
+          dw     drawGfxMob, .gpillara2f
+          dw     drawGfxMob, .gpillara3f
+          dw     drawGfxMob, .gpillara4f
+          dw    0
+
+.train_draw:
+          mdraw mobTrn1
+          mdraw mobTrn2
+          dw     drawGfxMob, .gpillarb1
+          dw     drawGfxMob, .gpillarb2
+          dw     drawGfxMob, .gpillarb3
+          dw     drawGfxMob, .gpillarb4
+;--- animation
+          dw moveXYZ, mobdef.posx, mobTrn1, #fff9, #0000, #0000
+          dw moveXYZ, mobdef.posx, mobTrn2, #0004, #0000, #0000
+          dw    0
+
+.gpillara1:  mobgfx   pillarA, KGfxPut , 8, 98, #00, 60, 35
+.gpillara2:  mobgfx   pillarA, KGfxPut , 8, 98, #08, 60, 35
+.gpillara3:  mobgfx   pillarA, KGfxPut , 8, 98, #10, 60, 35
+.gpillara4:  mobgfx   pillarA, KGfxPut , 8, 98, #18, 60, 35
+
+.gpillara1e:  mobgfx   pillarA, KGfxPut , 8, 24, #00, 60, 35
+.gpillara2e:  mobgfx   pillarA, KGfxPut , 8, 24, #08, 60, 35
+.gpillara3e:  mobgfx   pillarA, KGfxPut , 8, 24, #10, 60, 35
+.gpillara4e:  mobgfx   pillarA, KGfxPut , 8, 24, #18, 60, 35
+
+.gpillara1f:  mobgfx   pillarA+60*8, KGfxPut , 8, 14, #00, 124, 35
+.gpillara2f:  mobgfx   pillarA+60*8, KGfxPut , 8, 14, #08, 124, 35
+.gpillara3f:  mobgfx   pillarA+60*8, KGfxPut , 8, 14, #10, 124, 35
+.gpillara4f:  mobgfx   pillarA+60*8, KGfxPut , 8, 14, #18, 124, 35
+
+.gpillarb1:   mobgfx   pillarB, KGfxPut, 2, 20,  3, 124, 0
+.gpillarb2:   mobgfx   pillarB, KGfxPut, 2, 20, 11, 124, 0
+.gpillarb3:   mobgfx   pillarB, KGfxPut, 2, 20, 19, 124, 0
+.gpillarb4:   mobgfx   pillarB, KGfxPut, 2, 20, 27, 124, 0
+
+;---------------------------------
+.rckt_init:
+          cnmScnXYZ      0,-60,-#10
+          cnmScrCenter   127,#50
+          cnmScnFar      #150
+          cnmScnFade     #000
+          cnmScrTopBot   16,128
+          cnmLightShade  #08
+          cnmLightBright #00,#07
+          cnmLightMode   #00
+          cnmLightPos    #d000,#100
+;          cnmMobPos      mobRckt, -80, 350, 30
+          cnmMobPos      mobRckt, -80, 32, 30
+          cnmMobPos      mobRck2, -80, 250, 100
+          cnmMobPos      mobRck3, -480, 420, 150
+
+          callix        scrClear, #0600
+          call          rctfill
+          rscunpack     KRscBase, res_tab
+
+          page_ar 88
+          callix        drawGfxMob, gfxBase
+/*
+          rscunpack     KRscJupiter, res_tab
+          page_ar 88
+          ld            c,0,b,0,a,0
+          ld            hl,@temp3k
+          call          drawGfxHdd
+*/
+          call          scrCopy
+
+          cnmLightPos     #c000,#100
+          cnmLightBright  #00,#07
+          cnmLightShade   #08
+          ret
+
+.rckt_erase:
+;          dw    makeStars.erase, starRckt
+          mdel mobRckt
+;          mdel mobRck2
+;          mdel mobRck3
+          dw   0
+.rckt_draw:
+          dw    makeStars.draw, starRckt
+;          mdraw mobRck3
+;          mdraw mobRck2
+          mdraw mobRckt
+          dw   animate.rocket, 0
+          dw moveXYZ, mobdef.posx, mobRckt, #0000, #fffd, #0000          ; move object mobStat in position X
+          dw moveXYZ, mobdef.posx, mobRck2, #0000, #fff8, #0000          ; move object mobStat in position X
+          dw moveXYZ, mobdef.posx, mobRck3, #0000, #fff8, #0000          ; move object mobStat in position X
+          dw   0
+
+.doom_init:
+          cnmScnXYZ     -#80,0,88
+          cnmScrCenter  127,64
+          cnmScnFar     #100                       ; #200
+          cnmScnFade    #000                       ; #100
+          cnmScrTopBot  16,128
+          rscunpack     KRscCity3, res_tab        ; load city to workbuffer
+          callix        invGfxMob, gfxCity3
+          cnmMobPos     mobStat,  -40,-130, #300
+          callix        scrClear, #0100
+          callix        fillRct,.fill
+          call          scrCopy
+
+          ret
+.fill:    rctf 0,127,32,64,#ff
+.doom_erase:
+;-- erase
+          dw   makeStars.erase, starDoom
+          mdel mobStat
+          dw   0
+.doom_draw:
+;-- draw
+          dw   makeStars.draw, starDoom
+          dw   drawGfxMob, gfxCity3
+          mdraw mobStat
+;-- animate
+          dw animate.station2,2
+          dw moveXYZ, mobdef.posx, mobStat, #0001 ,#0000,#ffff
+;          mMoveCnt scene.far, #08, 0, #08, #20
+;          mMoveCnt scene.fade,#08, 0, #08, #20
+
+;-- end
+          dw 0
+
+;--------------------------------------
+.demo_init:
+          cnmScnXYZ     128,64,0
+          cnmScrCenter  127,#50
+          cnmScnFar     #200
+          cnmScnFade    #100
+          cnmScrTopBot  40,96
+          rscunpack     KRscCockpit, res_tab
+          call          egl.delinear
+
+          ld            hl,#5800+5*32
+          ld            d,h,e,l
+          inc           de
+          ld            bc,223
+          ld            (hl),#44
+          ldir
+
+          call          scrCopy
+          cnmMobPos     mobBall2, 0,  0, #50
+          cnmMobPos     mobMoon,  0,  0,#300
+          cnmMobPos     mobStat,  0,-90, #20
+          cnmMobPos     mobVoid,  200,-60,#20
+;          callix        scrClear,#4500
+          ret
+
+.demo_erase:
+;-- erase
+          dw    makeStars.erase, starDemo
+;          mdel mobBall1            ; dw _call, _ix
+          mdel mobBall2            ; mdel = call eraseMultiObject, ix_pointer to MOB data structure
+          mdel mobMoon
+          mdel mobStat
+          mdel mobVoid
+;          mdel mobOmg
+          dw   0
+.demo_draw:
+;-- draw
+;          dw   stars, dstStar1
+          dw    makeStars.draw, starDemo
+          mSort 4                  ; sort z-positions of following objects
+          mdraw mobMoon            ; mdraw = call drawMultiObject, ix_pointer to MOB data structure
+;          mdraw mobBall1
+          mdraw mobBall2
+          mdraw mobStat
+          mdraw mobVoid
+;          mdraw mobOmg
+
+;-- animate
+          dw animate.station3,#0802          ; xh-move in z-pos, xl=angle
+;          mMoveCnt mobBall1, -1, mobdef.posx, 0
+          ;mMoveCnt mobOmg,    1, mobdef.posx, 0
+          mMoveCnt scene.posx, -6, 0, 127, 0
+          mMoveCnt scene.posy, -2, 0, 40,  0
+          dw moveXYZ, mobdef.posx, mobVoid, 0, -1, #0002          ; move object mobStat in position X
+
+;-- end
+          dw 0
+.space_init:
+          cnmScnXYZ     -#100,#100,64
+          cnmScrCenter  127,64
+          cnmScnFar     #200
+          cnmScnFade    #100
+          cnmScrTopBot  32,176
+          cnmMobPos     mobStat,  90, 0, #200
+          callix        scrClear,#4200
+          ret
+
+.space_erase:
+;-- erase
+          dw makeStars.erase, starSpac
+          mdel mobMoon
+          mdel mobStat
+          dw   0
+.space_draw:
+;-- draw
+          dw makeStars.draw, starSpac
+          mdraw mobMoon            ; mdraw = call drawMultiObject, ix_pointer to MOB data structure
+          mdraw mobStat
+;-- animate
+          dw animate.station2,2
+          dw moveXYZ, 0       , scene, #0001,#fffa,#fff8                 ; move scene
+          dw moveXYZ, mobdef.posx, mobStat, #0000, #0000, #0001          ; move object mobStat in position X
+;-- end
+          dw 0

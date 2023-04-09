@@ -1,0 +1,335 @@
+        DEFINE KtBin 0  ; incbin data into memory, no label is assigned
+        DEFINE KtAsm 1  ; include assembly file
+        DEFINE KtNon 2  ; no include, just data record is created (e.g. for executable resources init, run, draw...)
+        DEFINE KtDat 3  ; incbin with label assignment. Label is in position of RUN field
+
+rscnt:  =      0
+_dadd:  =      $
+_dpag:  =      #0
+
+        MACRO  rload kname, _rtype, dpg, dst, run, _rfile
+        PAGE   _dpag
+        ORG    _dadd
+        db     _rpg, dpg
+_dend:  =      $
+
+        PAGE    _rpg and 7
+        ORG    _radd
+
+        IF _rtype=KtBin
+           incbin _rfile
+        ENDIF
+
+        IF _rtype=KtDat
+run        incbin _rfile
+        ENDIF
+
+        IF _rtype=KtAsm
+           INCLUDE _rfile
+        ENDIF
+
+        IF _rtype=KtNon
+           ; nothing to include, just pupulate table
+        ENDIF
+_rend:  =      $
+
+        PAGE   _dpag
+        ORG    _dend
+        IF _rtype=KtDat
+           dw     _radd, _rend-_radd, dst, 0
+        ELSE
+           dw     _radd, _rend-_radd, dst, run
+        ENDIF
+_dend:  =      $
+
+        ;DISPLAY "Rsc:",rscnt," Start: ",_radd," Len:",_rend-_radd," Pg:",_rpg, " End:",_rend
+        IF _rend>0x10000
+           ; shut down the compiler if data exceeds memory limit
+           LUA
+              sj.exit(0)
+           ENDLUA
+        ENDIF
+;        display "#:",rscnt
+kname   =      rscnt
+rscnt   =      rscnt+1
+_radd   =      _rend
+_dadd   =      _dend
+        ENDM
+
+        MACRO rinclude file
+         PAGE _rpg and 7
+         ORG  _radd
+         INCLUDE file
+_rend:   = $
+_radd:   = $
+         PAGE _dpag
+         ORG  _dend
+        ENDM
+
+;----- resource table
+res_tab:             ; name of the resource table
+_rpg:   = o3          ; ram page to use
+_radd:  = #c000      ; start address in the page
+;_rend:  = _radd      ; init value (not required)
+
+;        sytax:
+;        rload kname, _rtype, dpg, dst, run, _rfile
+
+         rload   KRscInvdr     ,KtBin ,o0 ,temp3k      , 0, "demo/gfx/hdi/invaders/invader.hdi.zx7"
+         rload   KRscBlksun1   ,KtBin, o0, temp3k      , 0, "demo/gfx/hdi/black_sun1c.hdi.zx7"
+         rload   KRscBlksun2   ,KtBin, o0, temp3k+1110 , 0, "demo/gfx/hdi/black_sun2c.hdi.zx7"
+lcalpis1: = temp3k
+lcalpis2: = temp3k+914
+         rload   KRscCalpis1   ,KtBin, o0, lcalpis1, 0, "demo/gfx/hdi/calpis1.hdi.zx7"
+         rload   KRscCalpis2   ,KtBin, o0, lcalpis2, 0, "demo/gfx/hdi/calpis2.hdi.zx7"
+
+;-- narcissus
+CloudB: = temp3k
+CloudL: = CloudB+135
+CloudR: = CloudL+1291
+         rload   KRscCloudB     ,KtBin ,o0 ,CloudB ,0 ,"demo/gfx/hdi/cloud_bott.hdi.zx7"
+         rload   KRscCloudL     ,KtBin ,o0 ,CloudL ,0 ,"demo/gfx/hdi/cloud_left.hdi.zx7"
+         rload   KRscCloudR     ,KtBin ,o0 ,CloudR ,0 ,"demo/gfx/hdi/cloud_right.hdi.zx7"
+         rload   KRscPlanet2    ,KtBin ,o0 ,temp3k ,0 ,"demo/gfx/hdi/planet_section.hdi.zx7"
+;--- landing
+         rload   KRscLanding    ,KtBin, o0, temp3k, 0 ,"demo/gfx/hdi/planet_landing3.hdi.zx7"
+Nostr: = temp3k+2307
+Nost2: = Nostr+273
+;         rload   KRscNostromb   ,KtBin, o0, Nostr , 0 ,"demo/gfx/hdi/nostromo_aback3_128.hdi.zx7"  ;"demo/gfx/hdi/nostromo_bw_128c.hdi.zx7"
+;         rload   KRscNostromb   ,KtBin, o0, Nostr , 0 ,"demo/gfx/hdi/Void_ModuleRound_mod_col.hdi.zx7"  ;"demo/gfx/hdi/nostromo_bw_128c.hdi.zx7"
+         rload   KRscNostromb   ,KtBin, o0, Nostr , 0 ,"demo/gfx/hdi/Void_ModuleRound_mod_4.hdi.zx7"  ;"demo/gfx/hdi/nostromo_bw_128c.hdi.zx7"
+;         rload   KRscNostromb   ,KtBin, o0, Nostr , 0 ,"demo/gfx/hdi/nostromo_aback2_128.hdi.zx7"  ;"demo/gfx/hdi/nostromo_bw_128c.hdi.zx7"
+         rload   KRscNostback1  ,KtBin, o0, Nostr , 0 ,"demo/gfx/hdi/nostromo_back.hdi.zx7"
+         rload   KRscNostback2  ,KtBin, o0, Nost2 , 0 ,"demo/gfx/hdi/nostromo_back_flame_w_mask.hdi.zx7"
+
+;--- train
+_tr_back:  = temp3k
+_tr_pill:  = temp3k
+_tr_pillt: = _tr_pill  + 4*387  ; room for prescrolling 4 times
+_tr_rail:  = _tr_pillt + 4*63
+_tr_end:   = _tr_rail  + 4*129
+
+_rpg: = _rpg or 8
+         rload   KRscTrainCity  ,KtBin, o0 or 8, #4000     , 0 ,"demo/gfx/screens/citytrain6.scr.zx7"
+         rload   KRscTrainPill  ,KtBin, o0 or 8, _tr_pill  , 0 ,"demo/gfx/hdi/city_pillar.hdi.zx7"
+         rload   KRscTrainPillt ,KtBin, o0 or 8, _tr_pillt , 0 ,"demo/gfx/hdi/city_pillars_top.hdi.zx7"
+         rload   KRscTrainRail  ,KtBin, o0 or 8, _tr_rail  , 0 ,"demo/gfx/hdi/city_rail.hdi.zx7"
+_rpg: = _rpg xor 8
+         rload   KRscHelmet1    ,KtBin, o0, #4000     , 0 ,"demo/gfx/helmet/helmet_4a.scr.zx7"
+;         rload   KRscHelmet2    ,KtBin, o0, #5800     , 0 ,"demo/gfx/helmet/helmet_4b.atr.zx7"
+;         rload   KRscPyramid    ,KtBin, o0, temp3k+1030,0 ,"demo/gfx/hdi/pyramid.hdi.zx7"                    ; small landing pyramid
+         rload   KRscWormhole   ,KtBin, o0, temp3k,     0 ,"demo/gfx/hdi/wormhole_fs3.hdi.zx7"
+lcross:  = temp3k
+lgraph:  = lcross  + 51*4
+lscale1: = lgraph  + 291
+lscale2: = lscale1 + 143
+ltrace:  = lscale2 + 155
+lback:   = ltrace  + 1155
+;         rload   KRscHudCross   ,KtBin, o0, lcross,     0 ,"demo/gfx/hdi/hud_cross2.hdi.zx7"
+         rload   KRscHudGraph   ,KtBin, o0, lgraph,     0 ,"demo/gfx/hdi/hud_graph2.hdi.zx7"
+         rload   KRscHudScale1  ,KtBin, o0, lscale1,    0 ,"demo/gfx/hdi/hud_scale1.hdi.zx7"
+         rload   KRscHudScale2  ,KtBin, o0, lscale2,    0 ,"demo/gfx/hdi/hud_scale2.hdi.zx7"
+         rload   KRscHudTrace   ,KtBin, o0, ltrace,     0 ,"demo/gfx/hdi/hud_trajectory.hdi.zx7"
+         rload   KRscExplore    ,KtBin, o0, temp3k,     0 ,"demo/gfx/hdi/prometheus_explorer_lp.hdi.zx7"
+         rload   KRscHollisTwn  ,KtBin, o0 or 8, #4000,     0 ,"demo/gfx/city/color_city7b.scr.zx7"
+;         rload   KRscHollisTwn  ,KtBin, o0 or 8, #4000,     0 ,"demo/gfx/city/color_city4.scr.zx7"
+         rload   KRscSolarMap1  ,KtBin, o0     , #4000,     0 ,"demo/gfx/screens/solar/solar_system6.001.zx7"
+;         rload   KRscCityInv    ,KtBin, o0     , temp3k,    0 ,"demo/gfx/city/color_city_invert.hdi.zx7"
+         rload   KRscCityInv    ,KtBin, o0     , temp3k,    0 ,"demo/gfx/city/color_city7_invert.hdi.zx7"
+         rload   KRscNostMask, KtBin, o0, temp3k, 0, "demo/gfx/hdi/nostromo_side_wmask.hdi.zx7"
+         rload   KRscComet   , KtBin, o0, tcomet, 0, "demo/gfx/hdi/comet.hdi"                      ; diagonal comet
+         rload   KRscSolarMap2,KtBin, o0, temp3k, 0 ,"demo/gfx/screens/solar/solar_system3.002.zx7"
+         DISPLAY "Resource page:",_rpg and 7," Free:",0x10000-_rend
+
+;        page 4 is occupied by rotoid engine. Resources can be used prior rotoid execution!
+_rpg:   = o4
+_radd:  = #c000
+_rend:  = _radd
+
+; multab is special case using new unpacktmp - decompress from temp buffer. Destination address is in "run" field
+         IFDEF _multabXls
+           rload   KRscMultab     ,KtBin ,o6 ,temp3k ,#c000 ,"demo/rotoid/multab_round_rev.zx7"
+         ENDIF
+         IFDEF _multabBmp
+           rload   KRscMultab     ,KtBin ,o6 ,temp3k ,#c000 ,"demo/rotoid/multab_bitmap.zx7"
+         ENDIF
+
+         rload   KRscVoidp1   ,KtBin ,o0, #4000, 0 ,"demo/gfx/screens/void_1.png_1_zx.raw.zx7"
+         rload   KRscVoidp2   ,KtBin ,o0, #4000, 0 ,"demo/gfx/screens/void_1.png_2_zx.raw.zx7"
+         rload   KRscInvad31  ,KtBin ,o0, #4000, 0 ,"demo/gfx/screens/invaders/invaders_logo_25_colormask.001.zx7"
+         rload   KRscInvad32  ,KtBin ,o0, temp3k,0 ,"demo/gfx/screens/invaders/invaders_logo_25_colormask.002.zx7"
+         rload   KRscRotEng1  ,KtBin, o0, #4000, 0 ,"demo/gfx/screens/relogo/RotoidEngine_5_mask.scr.001.zx7" ; pix
+         rload   KRscRotEng2  ,KtBin, o0, temp3k,0 ,"demo/gfx/screens/relogo/RotoidEngine_5_mask.scr.002.zx7" ; atr
+         rload  KRscScrVoid1  ,KtBin ,o0, #4000, 0 ,"demo/gfx/screens/voidlogo/VoidLogo5_crop_mask.scr.001.zx7"
+         rload  KRscScrVoid2  ,KtBin ,o0, temp3k,0 ,"demo/gfx/screens/voidlogo/VoidLogo5_crop_mask.scr.002.zx7"
+         DISPLAY "Resource page:",_rpg and 7," Free:",0x10000-_rend
+
+;        page 1 is occupied by rotoid engine. Resources can be used prior rotoid execution!
+_rpg:   = o6
+_radd:  = #c000
+_rend:  = _radd
+         rload  KRscSndInvade , KtDat, _rpg, 0, sndinvaders , "demo/ayplay/invaders.raw.out_pck"
+         rload  KRscSndEngine , KtDat, _rpg, 0, sndengine   , "demo/ayplay/rotoid_engine.daw"
+         rload  KRscSndVoid   , KtDat, _rpg, 0, sndvoid     , "demo/ayplay/void.daw"
+txsd0: = temp3k
+ffnt6: = temp3k+#100
+         rload  KRscDarktxt   , KtBin,   o0, txsd0, 0      , "bin/darkness.bin"
+         rload  KRscDarkfzx   , KtBin,   o0, ffnt6, 0      , "fonts/programmer_osg.fzx.zx7"
+;         rload  KRscDarkfzx   , KtBin,   o0, ffnt6, 0      , "fonts/swiss.fzx.zx7"
+         rload  KRscBoot      , KtBin,   o0, #4000, 0      , "demo/gfx/boot/boot6.scr.zx7"
+         DISPLAY "Resource page:",_rpg and 7," Free:",0x10000-_rend
+
+_rpg:   = o1
+_radd:  = #c000
+_rend:  = _radd
+; include assembly file, start address within the included file
+; -- fzx font driver
+         rload  KRscFzxIni, KtAsm, _rpg, 0, fzx.init, "libs/fzx_drv_mod.a80"
+         rload  KRscFzxRun, KtNon, _rpg, 0, fzx.runc, ""                             ; create only record in the table (does not include any data), can be called as executable resource
+         rload  KRscFzxFnt3, KtDat, _rpg, 0, ffnt3 , "fonts/Hiroshi_caps_reduced.FZX"
+         rload  KRscFzxFnt4, KtDat, _rpg, 0, ffnt4 , "fonts/swiss.fzx"
+         rload  KRscFzxFnt5, KtDat, _rpg, 0, ffnt5 , "fonts/void_font_tiny.fzx"
+         rload   KRscHudCross   ,KtBin, o0, lcross,     0 ,"demo/gfx/hdi/hud_cross2.hdi.zx7"
+         rload   KRscHelmet2    ,KtBin, o0, #5800     , 0 ,"demo/gfx/helmet/helmet_4b.atr.zx7"
+
+_lsun:  = 183
+_lpl1:  = 1155
+_lpl2:  = 498
+_asun:  = temp3k
+_apl1:  = _asun+_lsun
+_apl2:  = _apl1+_lpl1
+
+_lplp:  = 2505
+tcomet: = #6980              ; nostromo masked + pyramids background
+         rload  KRscSun     , KtBin, o0, _asun,  0, "demo/gfx/hdi/sun2.hdi.zx7"                   ; landing scene sun
+         rload  KRscPlanet11, KtBin, o0, _apl1,  0, "demo/gfx/hdi/planet1_1e.hdi.zx7"             ; landing scene, planet section 1
+         rload  KRscPlanet12, KtBin, o0, _apl2,  0, "demo/gfx/hdi/planet1_2e.hdi.zx7"             ; landing scene, planet section 2
+         rload  KRscEarth   , KtBin, o0, temp3k, 0, "demo/gfx/hdi/earth_color_4.hdi.zx7"          ; color earth
+         rload  KRscEarthBW , KtBin, o0, temp3k, 0, "demo/gfx/hdi/earth_bw_4.hdi.zx7"             ; bw earth
+_rpg: = _rpg XOR 8
+         rload  KRscAlien   , KtBin, o0+8,  #4000, 0, "demo/gfx/screens/alien_sel8.png_8x8.scr.zx7"
+_rpg: = _rpg XOR 8
+         rload  KRscPattern , KtBin, o0, temp3k, 0, "demo/gfx/pattern/patt6.hdi.zx7"
+; include some texts
+
+         PAGE _rpg and 7
+         ORG  _radd
+         INCLUDE "demo/demo_txt.a80"
+_rend:   = $
+_radd:   = $
+         PAGE _dpag
+         ORG  _dend
+music_packed: = #10000-2080
+         rload   KRscMsxP2   ,KtBin ,o7 ,music_packed , 0, "demo/msx/void.part2.pt3.fragment3.zx7"
+         rload   KRscMsxP3   ,KtBin ,o7 ,music_packed , 0, "demo/msx/void.part3.pt3.fragment3.zx7"
+         rload   KRscMsxP4   ,KtBin ,o7 ,music_packed , 0, "demo/msx/void.part4.pt3.fragment.zx7"
+
+         DISPLAY "Resource page:",_rpg and 7," Free:",0x10000-_rend
+
+_rpg:   = o7
+_radd:  = #db00
+_rend:  = _radd
+
+         PAGE _rpg and 7
+         ORG  _radd
+         INCLUDE "demo/msx/pt3.a80"
+_rend:   = $
+_radd:   = $
+         PAGE _dpag
+         ORG  _dend
+
+         PAGE   _rpg and 7
+         ORG    music_space
+         INCBIN "demo/msx/void.part1.pt3.fragment"
+
+
+msx.ini:  = music_init
+msx.run:  = music_play
+
+         PAGE _dpag
+         ORG  _dend
+
+;         rload  KRscMsxIni, KtAsm, _rpg, 0, music_init, "demo/msx/pt3.a80"
+
+/*
+msx.ini = #db00
+msx.run = #db05
+         rload  KRscMsxIni, KtDat, _rpg, 0, msx.ini , "demo/msx/vtplayer.cod"                   ; player
+         rload  KRscMsxRun, KtNon, _rpg, 0, msx.run , ""                                        ; create only record in the table (does not include any data), can be called as executable resource
+
+_radd:  = #e36e
+_rend:  = _radd
+         rload  KRscMsxDat, KtDat, _rpg, 0, msx.data, "demo/msx/VoidSoun.cod"                   ; msx data
+*/
+         DISPLAY "Resource page:",_rpg and 7," Free:", 0x10000-_rend
+         PAGE _dpag
+         ORG  _dend
+
+_rpg:   = o0
+_radd:  = p0free
+_rend:  = _radd
+
+         rload   KRscTitles  ,KtBin ,o0 ,temp3k , 0, "bin/end_titles.bin.zx7"
+         rload   KRscPyramid    ,KtBin, o0, temp3k+1030,0 ,"demo/gfx/hdi/pyramid.hdi.zx7"                    ; small landing pyramid
+         DISPLAY "Resource page:",_rpg and 7," Free:", 0x10000-_rend
+
+         PAGE _dpag
+         ORG  _dend
+
+;-------
+;         rload  KRscHdfFnt2, KtDat, o6, 0, hdffnt1 , "fontsql/plain1.hdf"
+;         rload  KRscHdfFnt1, KtDat, o6, 0, hdffnt2 , "fontsql/nsanserif16_first.hdf"
+;         rload  KRscHdfFnt1, KtDat, o6, 0, hdffnt2 , "fontsql/small3_first.hdf"
+
+;         rload   KRscHybrid     ,KtBin ,o0 ,temp3k ,0 ,"demo/gfx/hdi/hybrid.hdi.zx7"
+;         rload   KRscJupiter    ,KtBin ,o0 ,temp3k ,0 ,"demo/gfx/hdi/jupiter.hdi.zx7"
+;         rload   KRscJupiter_Bw ,KtBin ,o0 ,temp3k ,0 ,"demo/gfx/hdi/jupiter_bw.hdi.zx7"
+;         rload   KRscOddysey_1  ,KtBin ,o0 ,temp3k ,0 ,"demo/gfx/hdi/oddysey_1.hdi.zx7"
+;         rload   KRscStation1   ,KtBin ,o0 ,temp3k ,0 ,"demo/gfx/hdi/station1.hdi.zx7"
+;         rload   KRscEye        ,KtBin ,o0 ,temp3k ,0 ,"demo/gfx/hdi/Eye.hdi.zx7"
+;         rload   KRscPluto      ,KtBin ,o0 ,temp3k ,0 ,"demo/gfx/hdi/pluto.hdi.zx7"
+
+;         rload   KRscRedplanet  ,KtBin ,o0 ,temp3k ,0 ,"demo/gfx/hdi/redplanet.hdi.zx7"
+;         rload   KRscPlanetLP   ,KtBin, o0, temp3k , 0, "demo/gfx/hdi/planet_pink_flip.hdi.zx7"
+
+;         rload   KRscTrainBack  ,KtBin, o0, _tr_back  , 0 ,"demo/gfx/hdi/city_back.hdi.zx7"
+;         rload   KRscCompzoom   ,KtBin, o0, #4000     , 0 ,"demo/gfx/screens/computer_zoom.bin.zx7"
+;         display "**** ",lback," ",temp3k.end
+
+;         rload  KRscFzxFnt1, KtDat, _rpg, 0, ffnt1   , "fonts/belegost3.fzx"
+;         rload  KRscFzxFnt2, KtDat, _rpg, 0, ffnt2   , "fonts/Aribeth6.fzx"
+;         rload  KRscChrFnt1, KtDat, _rpg, 0, scroll_font, "fonts/AlmostCharcoalWider.fnt"
+
+;         rload  KRscFzxFnt4, KtDat, _rpg, 0, ffnt4   , "fonts/consul1.fzx"
+;         rload  KRscFzxFnt4, KtDat, _rpg, 0, ffnt4   , "fonts/up&up.fzx"
+
+;         rload  KRscFzxFnt4, KtDat, _rpg, 0, ffnt4   , "fonts/Soxz.fzx"
+;         rload  KRscFzxFnt4, KtDat, _rpg, 0, ffnt4   , "fonts/ste-aff.fzx"
+;         rload  KRscFzxFnt4, KtDat, _rpg, 0, ffnt4   , "fonts/Twombly.fzx"
+;         rload  KRscFzxFnt4, KtDat, _rpg, 0, ffnt4   , "fonts/Programmer.fzx"
+;         rload  KRscFzxFnt4, KtDat, _rpg, 0, ffnt4   , "fonts/Swiss.fzx"
+
+;         rload  KRscHdfFnt2, KtDat, o6, 0, hdffnt1 , "fontsql/excellent_first.hdf"
+;         rload  KRscHdfFnt3, KtDat, o6, 0, hdffnt3 , "fontsql/small3_first.hdf"
+
+;         rload  KRscGramon,  KtBin, o0, #4000, #4000, "_tools/gramon.bin.zx7"
+
+;         rinclude "libs/egl_scroll.a80"
+;        display "****", _apl1, _apl2
+;         rload  KRscNostSide, KtBin, o0, temp3k,0, "demo/gfx/hdi/nostromo_side.hdi.zx7"        ; unused
+;         rinclude "libs/egl_scroll.a80"
+;         rload   KRscExplore    ,KtBin, o0, temp3k,     0 ,"demo/gfx/hdi/prometheus_explorer_zx_algn.hdi.zx7"
+
+; load binary file, it is not executable and no label defined
+/*
+         IFDEF _multabXls
+           rload   KRscMultab     ,KtBin ,o1 ,temp3k ,#c000 ,"demo/rotoid/multab_round_rev.zx7"
+         ENDIF
+         IFDEF _multabBmp
+           rload   KRscMultab     ,KtBin ,o1 ,temp3k ,#c000 ,"demo/rotoid/multab_bitmap.zx7"
+         ENDIF
+*/
+; multab is special case using new unpacktmp - decompress from temp buffer. Destination address is in "run" field
+
+;         rload   KRscVVoid     ,KtBin ,o0 ,temp3k      , 0, "demo/gfx/hdi/void/void_vertical_pos.hdi.zx7"
+;         rload   KRscPlanet    ,KtBin ,o0 ,temp3k      , 0, "demo/gfx/hdi/planet.hdi.zx7"

@@ -1,0 +1,95 @@
+; --------------------------------
+;  input file: calpamos_7.sce
+;      lenght: 90
+; symbol file: q:\Development\Dev-ZX\_Kernel\main.sym
+; 27 Dec 2019 21:51:36
+	ld  hl,._scene_data
+	ld  de,scene
+	ld  bc,sceneSetup.len
+	ldir
+	ld   de,rotoid.gfxSun
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobCalpamos
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobLV426
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobLV223
+	ld   c,10
+	ldir
+	jp   ._cont_setup
+._scene_data:
+
+; scene:
+	dw   #FFBE	;.posx:
+	dw   #FFF3	;.posy:
+	dw   #FFED	;.posz:
+	dw   #0100	;.far:
+	dw   #0080	;.fade:
+
+; light:
+	dw   #9800	;.posx:
+	dw   #0100	;.posz:
+	db  #00	;.bright:
+	db  #09	;.contrs:
+	db  #34	;.angle:
+	db  #00	;.leff:
+	db  #F1	;.reff:
+	db  #03	;.shade:
+	db  #00	;.mode:
+
+; screen:
+	dw   #0054	;.posx:
+	dw   #003F	;.posy:
+	db  #08	;.cltop:
+	db  #BF	;.clbot:
+	db  #43	;.color:
+
+; currObj:
+	dw   #CC06	;.ptr:
+	db  #34	;.angle:
+	db  #42	;.ldata:
+	dw   #0049	;.posx16:
+
+; obj_1:
+;	dw   rotoid.drawHDI	;#9A72	;.drwexe:
+;	dw   rotoid.gfxSun	;#CC44	;.mobptr:
+	dw   temp3k	;#5B00	;.datptr:
+	db  #00	;.par1:
+	db  #00	;.par2:
+	dw   #FFFD	;.posx:
+	dw   #000D	;.posy:
+	dw   #0000	;.posz:
+
+; obj_2:
+;	dw   rotoid.drawMultiObject	;#8DEB	;.drwexe:
+;	dw   rotoid.mobCalpamos	;#CC3A	;.mobptr:
+	dw   rotoid.objCalpamos	;#CC06	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #0000	;.posx:
+	dw   #0000	;.posy:
+	dw   #003A	;.posz:
+
+; obj_3:
+;	dw   rotoid.drawMultiObject	;#8DEB	;.drwexe:
+;	dw   rotoid.mobLV426	;#CC8E	;.mobptr:
+	dw   rotoid.objLV426	;#CC58	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #0015	;.posx:
+	dw   #0007	;.posy:
+	dw   #0063	;.posz:
+
+; obj_4:
+;	dw   rotoid.drawMultiObject	;#8DEB	;.drwexe:
+;	dw   rotoid.mobLV223	;#CC98	;.mobptr:
+	dw   rotoid.objLV223	;#CC73	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #FFC0	;.posx:
+	dw   #FFFE	;.posy:
+	dw   #0018	;.posz:
+._cont_setup:

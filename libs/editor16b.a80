@@ -1,0 +1,430 @@
+         MODULE editor
+         
+font:    EQU   60*256
+
+init:    di
+         ld    (drawData),ix
+         ld    hl,(ix+edit.text)
+         call  printTxt
+         call  printMem
+         ld    hl,.reted2
+         push  hl
+         ld    hl,(ix+edit.usrini)
+         jp    (hl)
+.reted2: ei
+         ret
+
+redraw:
+         ld    ix,(drawData)
+         ld    hl,(ix+edit.text)
+         call  printTxt
+         call  printMem
+         ret
+
+run:     
+;         di
+;         ld      a,(@page)              ; preserve page
+;         push    af
+
+         ld     a,(ix+edit.atln)
+         ld     (hilight.col+1),a
+         call   hilight                 ; clear last highlight
+
+         ld      a,(ix+edit.page)       ; get mem page from structure
+         page_am
+
+         call   actions                 ; check keys, perform actions
+
+         ld     a,(ix+edit.aton)        ; highlight new position
+         ld     (hilight.col+1),a
+         call   hilight
+;         ld     hl,.reted
+;         push   hl
+         ld     hl,(ix+edit.usrrun)
+         jp     (hl)
+;.reted:
+;         pop    af                      ; get back mem page
+;         page_c
+;         debug_border_halt 2
+;         debug_pause 500
+;         ei
+;         ret
+
+save:
+         ld     a,r
+         and    7
+         out    (#fe),a
+         push  ix
+         ld    hl,(ix+edit.defs)        ; address of data table
+         ld    de,(ix+edit.stor)        ; address of saved data
+         ld    ix,hl
+.l1:     ld    hl,(ix+2)                ; address of data
+         ld    a,(ix+0)                 ; load marker
+         cp    #ff                      ; end of table?
+         jr    z,.l2
+     .4  inc   ix
+         ld    a,(hl)                   
+         ld    (de),a                   ; store byte
+         inc   de
+         bit   7,(ix+0)                 ; test of word-identification-bit
+         jr    nz,.l1
+         inc   hl
+         ld    a,(hl)                   
+         ld    (de),a                   ; store 2nd byte
+         inc   de
+         jr    .l1
+.l2:     pop   ix
+         ld    (ix+edit.stor),de
+         ret
+
+actions:
+         ld     bc,#effe        ; keys 09876
+.prev:   ld     a,0             ; previous port value
+         and    (ix+edit.optn)  ; debounce mask
+         ld     e,a
+         in     a,(c)
+         cpl
+         ld     (.prev+1),a
+         ld     d,a
+         xor    e
+         and    d
+             
+         bit    0,a
+         jp     nz,.save
+         bit    6,(ix+edit.optn)
+         jr     z,.s1
+         
+         bit    3,a
+         jr     nz,.up
+         bit    4,a
+         jr     nz,.down
+         bit    2,a
+         jr     nz,.right
+         bit    1,a
+         jr     nz,.left
+         ret
+         
+.s1:     bit    1,a
+         jr     nz,.up
+         bit    2,a
+         jr     nz,.down
+         bit    3,a
+         jr     nz,.right
+         bit    4,a
+         jr     nz,.left
+         ret
+         
+.left:   ld     a,(ix+edit.curr)
+         dec    a
+         ret    m
+         ld     (ix+edit.curr),a
+         ret
+
+.right:  ld     a,(ix+edit.curr)
+         inc    a
+         cp     (ix+edit.items)
+         ret    z
+         ld     (ix+edit.curr),a
+         ret
+
+.up:     call   getaddr
+         bit    6,a
+         ret    nz              ; read only
+         bit    7,a
+         jr     nz,.upword      ; word
+         ld     a,(hl)
+         add    a,(ix+edit.step)
+         ld     (hl),a
+         jp     printByte
+.upword: 
+         push   hl
+         push   bc
+         ld     e,(hl)
+         inc    hl
+         ld     d,(hl)
+
+         push   hl                ; add step (instead of inc)
+         ld     l,(ix+edit.step)
+         ld     h,0
+         add    hl,de
+         ex     de,hl
+         pop    hl
+
+         ld     (hl),d
+         dec    hl
+         ld     (hl),e
+         inc    hl
+         call   printByte
+         pop    bc
+         pop    hl
+         inc    c
+         inc    c
+         jp     printByte
+         
+         
+.down:   call   getaddr
+         bit    6,a
+         ret    nz
+         bit    7,a
+         jr     nz,.downword  
+         ld     a,(hl)
+         sub    (ix+edit.step)
+         ld     (hl),a
+         jp     printByte
+
+.downword:
+         push   hl
+         push   bc
+         ld     e,(hl)
+         inc    hl
+         ld     d,(hl)
+
+         push   hl
+         ex     de,hl
+         ld     e,(ix+edit.step)
+         ld     d,0
+         and    a
+         sbc    hl,de
+         ex     de,hl
+         pop    hl
+
+         ld     (hl),d
+         dec    hl
+         ld     (hl),e
+         inc    hl
+         call   printByte
+         pop    bc
+         pop    hl
+         inc    c
+         inc    c
+         jp     printByte
+         
+.save:   ld     hl,(ix+edit.save)
+         jp     (hl)
+
+getaddr: ld    a,(ix+edit.curr)
+         add   a,a
+         add   a,a
+         ld    l,a
+         ld    h,0
+         ld    de,(ix+edit.defs)  ; position in the parametter definition (currently selected)
+         add   hl,de
+         ld    c,(hl)             ; get x of AT
+         inc   hl
+         ld    a,(hl)             ; get y of AT
+         and   %00011111
+         ld    b,a
+         ld    a,(hl)
+         and   %11100000
+         ld    (flags),a          ; y holds also flags, store flags
+         inc   hl
+         ld    e,(hl)
+         inc   hl
+         ld    d,(hl)             ; address of parametter
+         ex    de,hl
+         ret                      ; positive - 8bit, negative - 16bit
+         
+hilight:
+         call  getaddr
+         ld    a,#c9              ; ret if 8bit
+         jp    p,.s1
+         ld    a,#2c              ; inc l if 16bit
+.s1:     ld    (.hret),a
+         call  _AtrXY2Adr         ; highlight in normal vram
+         
+.col:    ld    a,#55
+         ld    (hl),a
+         inc   l
+         ld    (hl),a
+.hret:   inc   l
+         ld    (hl),a
+         inc   l
+         ld    (hl),a
+         ret
+
+printMem:
+         push  ix
+         ld    hl,(ix+edit.defs)
+         ld    ix,hl
+.l1:     ld    bc,(ix+0)        ; position
+         ld    hl,(ix+2)        ; address of data
+         ld    a,c
+         cp    #ff
+         jr    z,.l2
+     .4  inc   ix
+         bit   7,b
+         res   7,b
+         jp    p,.s1
+         push  bc
+         push  hl
+         inc   hl
+         call  printByte
+         pop   hl
+         pop   bc
+         inc   c
+         inc   c   
+.s1:     call  printByte
+         jr    .l1
+.l2:     pop   ix
+         ret
+               
+printTxt:
+.l1:     ld    a,(hl)
+         and   a
+         ret   z
+         cp    1                    ; at
+         jr    nz,.s1
+         inc   hl
+         ld    c,(hl)               ; at x,y
+         inc   hl
+         ld    b,(hl)
+         inc   hl
+         ld    a,(ix+edit.atln)     ; attribute of the line
+         ld    (printChr.atr+1),a
+         ex    de,hl
+         call  _PixCH2Adr
+         
+         ex    de,hl
+         jr    .l1
+.s1:     push  hl
+         push  de
+;-- bright
+         cp    2
+         ld    hl,f_bright
+         jr    z,1F
+;-- contrast
+         cp    3
+         ld    hl,f_contrs
+         jr    z,1F
+;-- shades
+         cp    4
+         ld    hl,f_shades
+         jr    z,1F
+         add   a,a
+         ld    h,0
+         ld    l,a
+         add   hl,hl
+         add   hl,hl
+         ld    de,font
+         add   hl,de
+1        pop   de
+         call  printChr
+         pop   hl
+         inc   e
+         inc   hl
+         jr    .l1
+         
+printByte:
+         ld    a,(hl)
+         ex    af,af
+         call  _PixCH2Adr
+         
+         ex    de,hl
+         ex    af,af
+         push  af
+         and   #f0
+      .3 rrca   
+         call  printHigh
+         pop   af
+         inc   e
+         and   #0f
+          
+printLow:
+         add   a,a
+printHigh:
+         ld    l,a
+         ld    h,0
+         push  de
+         ld    de,ftab
+         add   hl,de
+         ld    a,(hl)
+         inc   hl
+         ld    h,(hl)
+         ld    l,a
+         pop   de
+printChr:
+         push  hl,de
+         ld    c,d
+         DUP   7
+         ld    a,(hl)
+         ld    (de),a
+         inc   l
+         inc   d
+         EDUP
+         ld    a,(hl)
+         ld    (de),a
+         ld    a,d
+         rra
+         rra
+         rra
+         and   #1f
+         or    #58
+         ld    d,a
+.atr:    ld    a,#55     ; color of the attribute
+         ld    (de),a
+         ld    d,c
+;-- 2nd vram
+         pop   de,hl
+         ld    a,(@page)
+         push  af
+         ld    a,o7
+         page_am
+
+         set   7,d
+
+         ld    c,d
+         DUP   7
+         ld    a,(hl)
+         ld    (de),a
+         inc   l
+         inc   d
+         EDUP
+         ld    a,(hl)
+         ld    (de),a
+
+         ld    a,d
+         rra
+         rra
+         rra
+         and   #1f
+         or    #d8
+         ld    d,a
+         ld    a,(.atr+1)     ; color of the attribute
+         ld    (de),a
+         ld    d,c
+         pop   af
+         page_am
+         res   7,d
+         ret
+
+_AtrXY2Adr:
+         call  AtrXY2Adr
+         ret
+_PixCH2Adr:
+         call  PixCH2Adr
+         ret
+
+flags:    db    0
+drawData: dw    0
+
+ftab:    
+off      DEFL  "0"*8
+         DUP   10
+           dw    font+off
+off        DEFL  off+8
+         EDUP
+off      DEFL  "A"*8
+         DUP   6
+           dw    font+off
+off        DEFL  off+8
+         EDUP
+
+         ALIGN   8
+
+; bitmaps of scene editor icons
+f_bright: db #10, #54, #38, #fe, #38, #54, #10, #00
+f_contrs: db #38, #74, #f2, #f2, #f2, #74, #38, #00
+f_shades: db #28, #54, #ea, #f4, #fa, #7c, #38, #00
+
+        ENDMODULE
+        

@@ -1,0 +1,221 @@
+; osg 25.06.2018
+; mmu module
+
+        MODULE  mmu
+clsxi:
+        ld     a,o5
+        call   clscr0
+        ld     a,o5
+        call   clatr0
+clpa7:  ld     a,o7
+        call   clscr0
+        ld     a,o7
+        jp     clatr0
+
+clsix:
+        ld     a,o5
+        call   clatr0
+        ld     a,o5
+        call   clscr0
+clap7:  ld     a,o7
+        call   clatr0
+        ld     a,o7
+        jp     clscr0
+
+; will erase 6144 bytes
+clscr0: ld     e,xl
+        ld     h,#c0
+; h=#c0 or #40, e=fill byte
+clscr:  ld     l,#00
+        ld     b,#18
+        ld     c,l
+        jp     clmem
+
+; will erase 768 bytes
+clatr0: ld     e,xh
+.e:     ld     h,#d8
+; clatr: h=#d8 or #58, e=attr value
+clatr:  ld     l,#00
+        ld     b,#03
+        ld     c,l
+
+clmem:  ex     af,af
+        ld     a,(@page)
+        ex     af,af
+        page_a                         ; a=page, hl=addr, e=byte, bc=len
+        ld     (hl),e
+        ld     d,h : ld e,l
+        inc de
+        dec bc
+        ldir
+        ex     af,af
+        page_a
+        ret
+
+/*
+cpscr57_temp3k:     ; copy screen from #4000 to p7 #c000, attrs from temp3k to #d800
+        xor    a
+        ld     (cpscr.sw),a
+        ld     bc,6144
+        ld     hl,#4000
+        ld     de,#c000
+        call   cpscr.nreg
+        ld     hl,temp3k
+        ld     bc,#300
+        jp     cpscr.nreg
+*/
+
+cpscr75:
+        ld     a,_exdehl
+        jr     1F
+
+cpscr57:
+        xor    a
+1       ld     (cpscr.sw),a
+
+cpscr:  ld     bc,#1b00
+        ld     hl,#4000
+        ld     de,#c000
+.nreg:  ld     a,(@page)
+        ex     af,af
+        ld     a,o7
+        page_a
+.sw:    nop
+        ldir
+        ex     af,af
+        page_a
+        xor    a
+        ld     (.sw),a
+        ret
+
+
+/*
+; mmu demo
+demo:
+        ld      a,o0
+        page_a
+        ld      hl,#0000
+        ld      de,#c000
+        ld      bc,6144
+        ldir
+        ld      hl,#3000
+        ld      de,#4000
+        ld      bc,6144
+        ld      xl,o0
+        ld      xh,o0
+        jp      copy
+*/
+; ldir - edb0
+; lddr - edb8
+; lddr is needed only if ((from+len>to) and (to<from))
+
+; memory copy        
+copy:   ld      (.msrc),hl
+        ld      (.mdes),de
+        ld      a,(page)
+        ld      (.ret+1),a
+
+        add     hl,bc           ; src+len
+        ld      (.mend),hl
+        and     a
+        sbc     hl,de           ; end-des
+        ld      hl,(.msrc)
+        jr      c,.ldir         ; <0
+
+        ex      de,hl          
+        sbc     hl,de          ; des-src
+        ld      hl,(.mdes)
+        ex      de,hl
+        jr      c,.ldir        ; <0           
+        
+        ex      de,hl
+        add     hl,bc
+        ex      de,hl
+        ld      hl,(.mend)
+        dec     de
+        dec     hl
+        
+        ld      a,$b8           ; lddr
+        exx
+        ld      hl,.swapdr
+        jr      .lddr
+
+.ldir:  exx
+        ld      a,$b0           ; ldir
+        ld      hl,.swapir
+.lddr:  ld      (.buf+1),hl
+        exx
+        ld      (.ld1+1),a
+        ld      (.ld2+1),a
+        ld      (.src+1),hl
+        ld      (.dst+1),de
+        ld      hl,256
+        ld      (.len+1),hl
+
+        ld      a,b
+        and     a
+        jr      z,.skip
+
+.loop:  exx
+.src:   ld      hl,$5555
+.buf:   ld      de,$5555        ; points to swap space
+.len:   ld      bc,$5555
+        ld      a,xl
+        page_a
+.ld1:   ldir
+        ld      (.src+1),hl
+        ld      hl,(.buf+1)
+.dst:   ld      de,$5555
+        ld      bc,(.len+1)
+        ld      a,xh
+        page_a
+.ld2:   ldir
+        ld      (.dst+1),de
+        exx    
+        djnz    .loop
+.skip:  ld      a,c
+        and     a
+        jr      z,.ret
+        ld      (.len+1),bc
+        ld      bc,$100
+        jr      .loop
+.ret:   ld      a,$55
+        page_a
+        ret
+
+.msrc:    dw      0
+.mdes:    dw      0
+.mend:    dw      0
+.page:    db      0          
+.swapir:  equ     swap          ; ds $100 - buffer
+.swapdr:  equ     swap+#ff 
+
+; HL,DE,BC = same as ldir
+; XL - (HL) source page
+; XH - (DE) destination page
+memswap:
+        ld      a,(page)
+        push    af
+
+        ld      a,xl
+        page_a
+
+.loop:  ld      a,(hl)
+        ex      af,af
+        ld      a,xh
+        page_a
+        ld      a,(de)
+        ex      af,af
+        ld      (de),a
+        ld      a,xl
+        page_a
+        ex      af,af
+        ld      (hl),a
+        inc     de
+        cpi
+        jp      pe,.loop
+        pop     af
+        page_a
+        ret
+
+        ENDMODULE

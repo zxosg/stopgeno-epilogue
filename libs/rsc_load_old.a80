@@ -1,0 +1,93 @@
+;-------------------------------------------------------------------------
+; resource loader
+;
+
+rscnt:  =         0
+        MACRO  rscm kname, spg, dpg, src, nxt, dst, run
+        db     spg, dpg
+        dw     src, nxt-src, dst, run
+        DISPLAY "Resource:",rscnt," Start: ",src," Len:",nxt-src
+kname   =      rscnt
+rscnt   =      rscnt+1
+        ENDM
+
+;----- resource table
+res_tab:
+          rscm  KRscBase,    83, 88, rgfx.base, rgfx.city, temp2k, 0
+          rscm  KRscCity,    83, 80, rgfx.city, rgfx.g2, temp2k, 0
+          rscm  KRscPillarA, 83, 88, rgfx.g2, rgfx.g3, pillarA, 0
+          rscm  KRscPillarB, 83, 88, rgfx.g3, rgfx.g4, pillarB, 0
+          rscm  KRscAlien3,  83, 80, rgfx.g4, rgfx.g5, #4000, 0
+          rscm  KRscEye1,    83, 80, rgfx.g5, rgfx.g6, #4000, 0
+          rscm  KRscEye2,    83, 80, rgfx.g6, rgfx.g7, #4000, 0
+          rscm  KRscGod1,    83, 80, rgfx.g7, rgfx.g8, #4000, 0
+          rscm  KRscGod2,    83, 80, rgfx.g8, rgfx.g9, #4000, 0
+          rscm  KRscGod1b,   83, 80, rgfx.g9, rgfx.g10, #4000, 0
+          rscm  KRscGod2b,   83, 80, rgfx.g10, rgfx.g11, #4000, 0
+          rscm  KRscDeath1b, 83, 80, rgfx.g11, rgfx.g12, #4000, 0
+          rscm  KRscDeath2b, 83, 80, rgfx.g12, rgfx.g13, #4000, 0
+
+;---
+          rscm  KRscFzxIni,  86, 80, 0, 0, 0, fzx.init
+          rscm  KRscFzxRun,  86, 80, 0, 0, 0, fzx.run
+          rscm  KRscCity2,   86, 80, rgf4.g0,  rgf4.g1 , #4000, 0
+          rscm  KRscAlien,   86, 80, rgf4.g1,  rgf4.g2 , #4000, 0
+          rscm  KRscAlienF,  86, 80, rgf4.g2,  rgf4.g3 , #4000, 0
+          rscm  KRscCity3,   86, 80, rgf4.g3,  rgf4.g4 , temp3k, 0
+          rscm  KRscCockpit, 86, 80, rgf4.g4,  rgf4.g5 , #4000, 0
+          rscm  KRscPlanet,  86, 80, rgf4.g5,  rgf4.g6 , temp3k, 0
+          rscm  KRscJupiter, 86, 80, rgf4.g6,  rgf4.g7 , temp3k, 0
+          rscm  KRscRedpln,  86, 80, rgf4.g7,  rgf4.g8 , temp3k, 0
+          rscm  KRscPluto,   86, 80, rgf4.g8,  rgf4.g9 , temp3k, 0
+          rscm  KRscSaturn,  86, 80, rgf4.g9,  rgf4.g10, temp3k, 0
+          rscm  KRscEye,     86, 80, rgf4.g10, rgf4.g11, temp3k, 0
+
+          display "P3: Rsc.End: ", rgfx.last," Free: ",#10000-rgfx.last
+          display "P4: Rsc.End: ", rgf4.last," Free: ",#10000-rgf4.last
+        
+rpage: =  83
+dend:  =  $
+          display "data start :",dstart
+          display "data end   :",dend
+          display "data length:",dend-dstart
+                 
+        page  3
+        org   #c000
+rgfx:
+.base:  incbin "\demo\gfx\base_14x87.bin.zx7"
+.city:  incbin "\demo\gfx\city_panorama_25x64i.bin.zx7"
+.g2:    incbin "\demo\gfx\pillar_both_8x98.bin.zx7"
+.g3:    incbin "\demo\gfx\pillar_bottom_2x20.bin.zx7"
+.g4:    incbin "\demo\gfx\alien3_32x192_a.raw.zx7"
+.g5:    incbin "\demo\gfx\eye_32x192_2.zx7"
+.g6:    incbin "\demo\gfx\eye_32x192_1.zx7"
+.g7:    incbin "\demo\gfx\god_1.zx7"
+.g8:    incbin "\demo\gfx\god_2.zx7"    
+.g9:    incbin "\demo\gfx\god2_1.bin.zx7"
+.g10:   incbin "\demo\gfx\god2_2.bin.zx7"
+.g11:   incbin "\demo\gfx\death_b_1.bin.zx7"
+.g12:   incbin "\demo\gfx\death_b_2.bin.zx7"
+.g13:
+.last:
+
+        PAGE   6
+        org    #c000
+        include "\libs\fzx_drv.a80"
+ffnt1:  incbin  "\fonts\belegost3.fzx"
+ffnt2:  incbin  "\fonts\Aribeth6.fzx"
+rgf4:
+.g0:    incbin "\demo\gfx\CityTrain1.zx7"
+.g1:    incbin "\demo\gfx\ALIEN_SELECTOR.scr.zx7"
+.g2:    incbin "\demo\gfx\ALIEN_SELECTOR_F.scr.zx7"
+.g3:    incbin "\demo\gfx\city1_32x68.raw.zx7"
+.g4:    incbin "\demo\gfx\cockpit_full_zx.bin.zx7"
+.g5:    incbin "\demo\gfx\planet_hd.bin.zx7"
+.g6:    incbin "\demo\gfx\jupiter_zx_hd.bin.zx7"
+.g7:    incbin "\demo\gfx\redplanet_zx_hd.bin.zx7"
+.g8:    incbin "\demo\gfx\pluto_zx_hd.bin.zx7"
+.g9:    incbin "\demo\gfx\saturn_bw.png_hd.raw"
+.g10:   incbin "\demo\gfx\eye_hdi.bin.zx7"
+.g11:
+.last:
+;------------------
+        ORG    dend      ; keep compiler happy after include

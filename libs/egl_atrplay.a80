@@ -1,0 +1,598 @@
+        MODULE egl
+
+backFlash:
+        pop      hl
+        ldi      de,(hl)
+        ld       (@rtFlash.atFrame),de      ; frame event (when it happens)
+        ld       a,d
+        or       e                          ; DE=0  test below
+        ldi      de,(hl)
+        ld       (@rtFlash.rtLength),de     ; length of FRAME - ENDF
+        ld       a,(hl) : inc hl
+        ld       (@rtFlash.fGap),a
+        ld       a,1
+        ld       (@rtFlash.fState),a
+        ld       d,(hl) : inc hl            ; beginning color
+        ld       e,(hl) : inc hl            ; difference of colors (e.g. 8, -8, 9, -9)
+        ld       b,(hl) : inc hl            ; number of colors
+        push     hl
+        ld       hl,@rtFlash                ; DE<>0 (frame event defined) = wait for it
+        jr       nz,1F                      ; test of DE=0 from above!
+        ld       hl,@rtFlash.now            ; DE=0  (frame event NOT define) = execute NOW
+1       push     hl
+        ld       hl,@dataSF
+        call     egl.clearatr.make          ; create attribute dataset
+        callix egl.clearatr.init, atrScrFlash
+        pop      hl
+        call     @execmd.init               ; execute flash effect
+        pop      hl
+        jp       (hl)
+
+flash:
+.wht:    ld     hl,#3f3f
+         jr     1F
+.blk:    ld     hl,0
+         jr     1F
+.col:    ld     a,xh,l,a,h,a
+         ld     a,xl,xh,a
+1        ld     (@dataSF),hl
+         ld     (@dataSF+2),ix
+         ld     a,#ff
+         ld     (@dataSF+4),a
+         ld     hl,5
+         ld     (@rtFlash.rtLength),hl     ; length of FRAME - ENDF
+         ld     a,4
+         ld     (@rtFlash.fGap),a
+         callix egl.clearatr.init, atrScrFlash
+         ld     hl,@rtFlash.now
+.tgl:    scf                               ; scf | and a
+         jp     c,@execmd.idle
+         jp     @execmd.init
+
+;-----------------------------------
+; data = attr values. Bit 7=1 end of data
+; mode: bit 0=0 - no border,  =1 - border as paper
+;       bit 1=0 - no repeat,  =1 - repeat sequence
+;       bit 2=0 - no page,    =1 - page-out memory
+;       bit 3=0 - no flip vrm =1 - flip vram (xor page value with %00001011)
+;       bit 7=0 - addr #58XX  =1  #d8XX addressing
+
+clearatr:
+        call     c,.init
+.run:
+        xor      a
+        ld       (.rvram+1),a
+        ld       a,(@page)
+        ex       af,af
+        ld       de,(ix+clatt.ptr)
+        ld       hl,(ix+clatt.addr)
+        ld       a,(de)
+        and      a                              ; mark end of the block
+        jp       p,1F
+
+        bit      1,(ix+clatt.mode)              ; repeat sequence
+        scf
+        jr       nz,clearatr
+        ret
+
+1       inc      de
+        ld       (ix+clatt.ptr),de
+        ld       (.savesp+1),sp
+        ld       sp,hl
+        ld       l,a
+        ld       h,a
+
+        bit      0,(ix+clatt.mode)              ; border as paper
+        jr       z,1F
+        rrca
+        rrca
+        rrca
+        and      7
+        out      (#fe),a
+1
+        bit      2,(ix+clatt.mode)              ; paging used?
+        jr       z,2F
+        bit      3,(ix+clatt.mode)
+        ld       a,%00001010                    ; xor mask to flip 5/7 + bit 3 (2nd vram)
+        jr       nz,1F
+        xor      a
+1       xor      (ix+clatt.page)
+        ld       (ix+clatt.page),a
+        page_a
+        and      8
+        ld       (.rvram+1),a
+2       ld       b,(ix+clatt.hght)
+.loop:
+        DUP      16
+          push     hl
+        EDUP
+        djnz     .loop
+.savesp:
+        ld       sp,$5555
+        ex       af,af
+.rvram: or       #00
+        page_a
+        ret
+
+.init:  ld       hl,(ix+clatt.data)
+        ld       (ix+clatt.ptr),hl
+        ld       a,(ix+clatt.posy)
+        add      a,(ix+clatt.hght)
+        ld       b,a
+        ld       c,0
+        call     AtrXY2Adr
+        ld       a,(ix+clatt.mode)
+        and      #80
+        or       h
+        ld       (ix+clatt.addr),l
+        ld       (ix+clatt.addr+1),a
+        ret
+
+.run2:  ld       a,(rotoid.run.vpage+1)
+        xor      #02
+        page_a
+        call     .run
+        ld       a,(rotoid.run.vpage+1)
+        page_a
+        jp       .run
+
+; simple attr fade in/out data maker
+; hl = where to make data,
+; d=color
+; e=difference
+; b=number of colors
+.make:
+1       ld       (hl),d : inc hl
+.skip:  jr       2F                             ; change (.skip+1) to 0 = double value, 2 = single value
+2       ld       (hl),d : inc hl
+        ld       (hl),#ff                       ; #ff end of table
+        ld       a,d
+        add      a,e
+        ld       d,a
+        ret      m
+        djnz     1B
+        ret
+
+attwin:
+        call     c,.init
+.run:   xor      a
+        ld       (.rvram+1),a
+        ld       a,(@page)
+        ex       af,af
+        ld       de,(ix+atwin.ptr)
+        ld       a,(de)
+        and      a                              ; mark end of the block
+        jp       p,1F
+
+        bit      1,(ix+atwin.mode)              ; repeat sequence
+        scf
+        jr       nz,attwin
+        ret
+
+1       inc      de
+        ld       (ix+atwin.ptr),de
+        ld       e,a
+        ld       d,a
+        ld       (.savesp+1),sp
+        ld       hl,(ix+atwin.addr)
+
+        bit      0,(ix+atwin.mode)              ; border as paper
+        jr       z,1F
+        rrca
+        rrca
+        rrca
+        and      7
+        out      (#fe),a
+1
+        bit      2,(ix+atwin.mode)              ; paging used?
+        jr       z,2F
+        bit      3,(ix+atwin.mode)
+        ld       a,%00001010                    ; xor mask to flip 5/7 + bit 3 (2nd vram)
+        jr       nz,1F
+        xor      a
+1       xor      (ix+atwin.page)
+        ld       (ix+atwin.page),a
+        page_am                                 ; won't save to @page variable (cannot be interrupted anyway)
+        and      8
+        ld       (.rvram+1),a
+
+2       ld       c,(ix+atwin.width)
+        sra      c
+        ld       a,16
+        sub      c
+        ld       (.modjr),a
+
+        ld       a,(ix+atwin.hght)
+        ld       bc,#20
+
+.loop:  ld       sp,hl
+        add      hl,bc
+        db       #18              ; jr
+.modjr: db       #00
+        DUP      16
+          push     de
+        EDUP
+        dec      a
+        jp       nz,.loop
+.savesp:
+        ld       sp,$5555
+        ex       af,af
+.rvram: or       #00
+        page_a
+        ret
+
+.init:  ld       hl,(ix+atwin.data)
+        ld       (ix+atwin.ptr),hl
+        ld       b,(ix+atwin.atxy+1)
+        ld       c,(ix+atwin.atxy)
+        call     AtrXY2Adr
+        ld       e,(ix+atwin.width)
+        ld       d,0
+        add      hl,de                ; move to end of the line
+        ld       a,(ix+atwin.mode)
+        and      #80
+        or       h
+        ld       (ix+atwin.addr),l
+        ld       (ix+atwin.addr+1),a
+        ret
+
+border: ld       a,xl
+        out      (#fe),a
+        ld       c,xh
+        ld       a,c
+        and      a
+        ret      z
+.lop2:  ld       b,12
+.loop:  djnz     .loop
+        dec      c
+        jr       nz,.lop2
+        ret
+/*
+b0:     xor a:   jr 1F
+b1:     ld a,1:  jr 1F
+b2:     ld a,2:  jr 1F
+b3:     ld a,3:  jr 1F
+b4:     ld a,4:  jr 1F
+b5:     ld a,5:  jr 1F
+b6:     ld a,6:  jr 1F
+b7:     ld a,7
+1       out (#fe),a : ret
+*/
+
+atrFadeHalf:
+           ld   a,(@page)
+           push af
+           and  8
+           ld   a,o5
+           jr   z,1F
+           ld   a,o7+8
+1          page_a
+           push  af
+           ld   b,8
+.l         exx
+           halt
+           ld   hl,#d800
+           call atrFade.hl
+           exx
+           djnz .l
+           pop  af
+           xor  #02
+           ld   e,0
+           call mmu.clatr0.e
+           pop  af
+           page_a
+           ret
+
+atrFadeFull:
+           border 0
+           ld   a,(@page)
+           push af
+           call mmu.cpscr
+           ld   b,#10
+.l:        exx
+           halt
+.m:        ld   a,o7
+           xor  #0a
+           ld   (.m+1),a
+           page_a
+           ld   hl,#d800
+           call atrFade.hl
+           exx
+           djnz .l
+           pop  af
+           page_a
+           ret
+
+; atr fade out
+; ix=vram addr (5800|d800)
+; Ped7G Jan 10 2021
+atrFade:
+           ld   hl,ix
+.hl:       ld   e,%00'001'001
+            call .doThird
+            call .doThird
+.doThird:
+            ld a,(hl)
+            ld d,a
+            rra
+            or d
+            rra
+            or d
+            and e   ; A = +8 / +1 for PAPER/INK when PAPER/INK is non-zero
+            sub d
+            neg     ; A = A - (+8/+1) (--PAPER, --INK)
+            ld (hl),a
+            inc l
+            jp nz,.doThird
+            inc h
+           ret
+
+;-------------------------------------------------------------------------------
+atrFadeInFull:
+        ld      a,(@page)
+        push    af
+        ld      a,o7+8
+        page_a
+
+        ld      hl,#4000                      ; copy pixels to vram1
+        ld      de,#c000
+        ld      bc,#1800
+        ldir
+;---
+        call    egl.atrFadeIn.ini
+        ld      b,#08                         ; fade in
+2       exx
+        halt
+        halt
+        ld      a,(#5800)
+        rrca
+        rrca
+        rrca
+        and     7
+        out     (#fe),a
+        call    egl.atrFadeIn.run
+        exx
+        djnz    2B
+
+        pop     af
+        page_a
+        ret
+
+;--------------------------------------------
+; fade in, working-buffer attrs are in #5800
+; target-value attrs are in #d800
+; limited to fade-in from "less/equal" value-per-component (than target)
+atrFadeIn:
+.run:
+            ld      de,$5800
+            ld      hl,$D800
+            ld      c,%01'001'001
+            call    .doThird
+            call    .doThird
+.doThird:
+            ld      a,(de)
+            inc     e
+            xor     (hl)    ; A = xor-difference between source/target value
+            ld      b,a
+            rra
+            or      b
+            rra
+            or      b
+            and     c       ; A = +64/+8/+1 for B+F/PAPER/INK when xor-diff is non-zero
+            add     a,(hl)
+            ld      (hl),a
+            inc     l
+            ; second attribute (optimization to have one JP less)
+            ld      a,(de)
+            inc     e
+            xor     (hl)    ; A = xor-difference between source/target value
+            ld      b,a
+            rra
+            or      b
+            rra
+            or      b
+            and     c       ; A = +64/+8/+1 for B+F/PAPER/INK when xor-diff is non-zero
+            add     a,(hl)
+            ld      (hl),a
+            inc     l
+            jp      nz,.doThird
+            inc     d
+            inc     h
+.ini:       ret
+
+/*
+;--------------------------------------------
+; fade in - single iteration
+; source attrs are in #5800
+; destination attrs are in #d800
+; ini - initializes bright
+; run - performs iteration between source and target
+; limited to fade from black
+
+atrFadeIn:
+.ini:
+           ld      hl,#5800
+           ld      de,#d800
+           ld      bc,#300
+1          ld      a,(hl)
+           and     #40
+           ld      (de),a
+           inc     de
+           cpi
+           jp      pe,1B
+           ret
+.run:
+           ld      hl,#d800
+           ld      de,#5800
+           ld      c,%00111000
+
+.l1:
+           ld      a,(de)   ; get source data
+           and     7        ; mask ink
+           ld      b,a
+           ld      a,(hl)   ; get target
+           and     7
+           cp      b        ; compare inks
+           jr      z,1F     ; same = do nothing
+           inc     (hl)     ; increase target
+
+1          ld      a,(de)     ; get source data
+           and     c          ; mask paper
+           ld      b,a
+           ld      a,(hl)
+           and     c
+           cp      b
+           jr      z,1F
+           ld      a,(hl)
+           add     a,8
+           ld      (hl),a     ; inc paper target
+
+1          inc     hl
+           inc     de
+           ld      a,d
+           cp      #5b
+           jp      nz,.l1
+           ret
+*/
+
+;-------------------------------------------------------------------------------
+    ; 61B -> 60B, worst case inner loop 122T -> 103T. skip-case is 54T -> 42T
+atrSetMaskColor:
+.bias:     ld      h,a                       ; bias = -7...7
+                                             ; fixed= 8...15 (bit 3)
+           ld      l,_addan                  ; "add a,n" for bias
+           sub     8
+           jp      m,1F                      ; bias (-7..+7)
+           ld      h,a                       ; adjusted fixed value to 0..7
+           ld      l,_ldan                   ; "ld a,n" for fixed
+        ; ^ entry modified to save 5B (includin -1 for "ld (.bs),hl")
+1          ld      (.bs),hl
+.sdata:    ld      de,#5555                  ; data
+.svram:    ld      hl,#5555                  ; vram
+           ld      c,7
+           call    .doThird
+           call    .doThird
+.doThird:
+.l1:
+           ld      a,(de)
+           and     %11000000                 ; test of bit 7 + extract bright value
+           jp      m,.s1                     ; mark = skip attribute
+           ld      b,a                       ; save bright value
+           ld      a,(de)
+           and     c                         ; 7, mask ink only
+.bs:       add     a,#55                     ; bias (negative number) ; add a,* / ld a,* (fixed)
+           jp      m,.s3                     ; if <0 then black
+           cp      c                         ; if >7 then 7
+           jp      c,.s2 ; ? "jr" for better worst case?
+           ld      a,c
+.s2:       or      b                         ; or bright
+.s22:      ld      (hl),a                    ; save final color
+.s1:       inc     e
+           inc     l
+           jp      nz,.l1       ; x256
+           inc     d            ; +256 for next third
+           inc     h
+           ret
+.s3:       ld      (hl),b       ; black + bright
+           jr      .s1  ; ? "jp" for -2T when clamping to 0?
+           ; or even unroll tail (+5B)
+
+; de=vram addr
+; hl=attr data (paper color is used for selection of area)
+; a =area number (max 8 areas)
+; call init first to reset 7 th bit of data for area that will be displayed
+; area that won't be displayed will have 7th bit set
+.init:     ld      (.sdata+1),hl
+           ld      (.svram+1),de
+           ret  ; why? can't you call single ".init" with HL+DE+A every time? (-4B *here*)
+.inia:     ld      hl,(.sdata+1)    ; can be removed if only ".init" is called every time
+           ld      e,a
+           ld      bc,#300
+.ilp:      ld      a,(hl)
+           and     %00111000
+           cp      e
+           set     7,(hl)
+           jr      nz,1F    ; needs flipped meaning for atrSetMaskColor: reset -> display, set -> skip
+           res     7,(hl)   ; also more bytes to skip than to display -> faster init in this way
+1          cpi
+           jp      pe,.ilp
+           ret
+
+/*
+atrSetMaskColor:
+.bias:     ld      b,a                       ; bias = -7...7
+                                             ; fixed= 8...15 (bit 3)
+           and     a
+           ld      c,_addan                  ; negatives = bias
+           jp      m,1F
+           and     8
+           jr      z,1F                      ; positive & <8 = bias
+           ld      c,_ldan                   ; positive & > 8 = fixed offset
+           res     3,b
+1          ld      (.bs),bc
+
+.shl:      ld      hl,#5555                  ; data
+.sde:      ld      de,#5555                  ; vram
+;           ld      bc,#0300
+           ld      c,7
+
+.l1:
+           ld      a,(hl)
+           and     a                         ; test of bit 7
+           jp      p,.s1                     ; no mark = skip attribute
+
+           and     %01000000
+           ld      b,a                       ; save bright value
+
+           ld      a,(hl)
+           and     c                         ; 7, mask ink only
+
+.bs:       add     a,#55                     ; bias (negative number)
+           jp      m,.s3                     ; if <0 then black
+
+           cp      c                         ; if >7 then 7
+           jp      c,.s2
+           ld      a,c
+
+.s2:       or      b                         ; or bright
+.s22:      ld      (de),a                    ; save final color
+
+.s1:       inc     de
+           inc     hl
+           ld      a,h
+.ce:       cp      #55                       ; check end attribute
+           jp      nz,.l1
+           ret
+
+.s3:       xor     a
+           jr      .s22
+
+; de=vram addr
+; hl=attr data (paper color is used for selection of area)
+; a =area number (max 8 areas)
+; call init first to set 7 th bit of data for area that will be displayed
+; area that won't be displayed will have 7th bit reset
+
+.init:     ld      (.shl+1),hl
+           ld      (.sde+1),de
+           ld      a,h
+           add     a,3
+           ld      (.ce+1),a
+           ret
+
+.inia:     ld      hl,(.shl+1)
+           ld      de,(.sde+1)
+           ld      (.cp+1),a
+           ld      bc,#300
+
+.ilp:      ld      a,(hl)
+           and     %00111000
+.cp:       cp      #55
+           set     7,(hl)
+           jr      z,1F
+           res     7,(hl)
+1          cpi
+           jp      pe,.ilp
+           ret
+*/
+           ENDMODULE

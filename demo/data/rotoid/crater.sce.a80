@@ -1,0 +1,173 @@
+; --------------------------------
+;  input file: crater.sce
+;      lenght: 174
+; symbol file: q:\Development\Dev-ZX\_Kernel\main.sym
+; 11 Dec 2019 19:17:55
+	ld  hl,._scene_data
+	ld  de,scene
+	ld  bc,sceneSetup.len
+	ldir
+	ld   de,rotoid.gfxPlanet
+	ld   c,10
+	ldir
+	ld   de,rotoid.s_scedit.cityBkg
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobCrater5
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobCrater6
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobCrater7
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobCrater8
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobCrater1
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobCrater2
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobCrater3
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobCrater4
+	ld   c,10
+	ldir
+	jp   ._cont_setup
+._scene_data:
+
+; scene:
+	dw   #FF0F	;.posx:
+	dw   #FFE5	;.posy:
+	dw   #007C	;.posz:
+	dw   #0180	;.far:
+	dw   #0080	;.fade:
+
+; light:
+	dw   #D000	;.posx:
+	dw   #0100	;.posz:
+	db  #00	;.bright:
+	db  #0C	;.contrs:
+	db  #18	;.angle:
+	db  #00	;.leff:
+	db  #F5	;.reff:
+	db  #00	;.shade:
+	db  #00	;.mode:
+
+; screen:
+	dw   #0015	;.posx:
+	dw   #0082	;.posy:
+	db  #10	;.cltop:
+	db  #A7	;.clbot:
+	db  #06	;.color:
+
+; currObj:
+	dw   #D240	;.ptr:
+	db  #18	;.angle:
+	db  #3C	;.ldata:
+	dw   #005D	;.posx16:
+
+; obj_1:
+;	dw   rotoid.drawHDI	;#99E9	;.drwexe:
+;	dw   rotoid.gfxPlanet	;#D3CA	;.mobptr:
+	dw   temp3k	;#5B00	;.datptr:
+	db  #00	;.par1:
+	db  #00	;.par2:
+	dw   #0010	;.posx:
+	dw   #FFA2	;.posy:
+	dw   #0400	;.posz:
+
+; obj_2:
+;	dw   rotoid.drawHDI	;#99E9	;.drwexe:
+;	dw   rotoid.s_scedit.cityBkg	;#D678	;.mobptr:
+	dw   rotoid.s_scedit.hdiBk	;#6208	;.datptr:
+	db  #00	;.par1:
+	db  #00	;.par2:
+	dw   #0000	;.posx:
+	dw   #00B4	;.posy:
+	dw   #FF00	;.posz:
+
+; obj_3:
+;	dw   rotoid.drawMultiObject	;#8DC2	;.drwexe:
+;	dw   rotoid.mobCrater5	;#D3A2	;.mobptr:
+	dw   rotoid.objCrater5	;#D2C3	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #0032	;.posx:
+	dw   #0000	;.posy:
+	dw   #01F0	;.posz:
+
+; obj_4:
+;	dw   rotoid.drawMultiObject	;#8DC2	;.drwexe:
+;	dw   rotoid.mobCrater6	;#D3AC	;.mobptr:
+	dw   rotoid.objCrater6	;#D2F7	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #FF6A	;.posx:
+	dw   #0000	;.posy:
+	dw   #01A0	;.posz:
+
+; obj_5:
+;	dw   rotoid.drawMultiObject	;#8DC2	;.drwexe:
+;	dw   rotoid.mobCrater7	;#D3B6	;.mobptr:
+	dw   rotoid.objCrater7	;#D312	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #01C2	;.posx:
+	dw   #0000	;.posy:
+	dw   #0180	;.posz:
+
+; obj_6:
+;	dw   rotoid.drawMultiObject	;#8DC2	;.drwexe:
+;	dw   rotoid.mobCrater8	;#D3C0	;.mobptr:
+	dw   rotoid.objCrater8	;#D346	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #0226	;.posx:
+	dw   #0000	;.posy:
+	dw   #0130	;.posz:
+
+; obj_7:
+;	dw   rotoid.drawMultiObject	;#8DC2	;.drwexe:
+;	dw   rotoid.mobCrater1	;#D37A	;.mobptr:
+	dw   rotoid.objCrater1	;#D20C	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #0032	;.posx:
+	dw   #0000	;.posy:
+	dw   #00F0	;.posz:
+
+; obj_8:
+;	dw   rotoid.drawMultiObject	;#8DC2	;.drwexe:
+;	dw   rotoid.mobCrater2	;#D384	;.mobptr:
+	dw   rotoid.objCrater2	;#D240	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #FF6A	;.posx:
+	dw   #0000	;.posy:
+	dw   #00A0	;.posz:
+
+; obj_9:
+;	dw   rotoid.drawMultiObject	;#8DC2	;.drwexe:
+;	dw   rotoid.mobCrater3	;#D38E	;.mobptr:
+	dw   rotoid.objCrater3	;#D25B	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #01C2	;.posx:
+	dw   #0000	;.posy:
+	dw   #0080	;.posz:
+
+; obj_10:
+;	dw   rotoid.drawMultiObject	;#8DC2	;.drwexe:
+;	dw   rotoid.mobCrater4	;#D398	;.mobptr:
+	dw   rotoid.objCrater4	;#D28F	;.datptr:
+	db  #7F	;.par1:
+	db  #00	;.par2:
+	dw   #0226	;.posx:
+	dw   #0000	;.posy:
+	dw   #0030	;.posz:
+._cont_setup:

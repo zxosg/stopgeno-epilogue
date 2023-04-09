@@ -1,0 +1,899 @@
+/* controls segment editor
+   6,7,8,9 	- move with cursor and inc/dec value
+   0		- pre-set bit changes (typically set-res bit 7)
+   1		- cycle through CLS modes
+   2            - buffer clean-up
+   3            - options +
+		- y-off = y=y+segment height
+		- x-off = neg x offset
+		- add   = Copy segmet below selected
+   q,a          - move segment layer up, down
+   m            - select previous segment
+   space        - select next segment
+   enter        - refresh HUD
+*/
+
+; RED = Rotoid EDitor
+_s:  =   $
+; scene editor
+scene_ed:     edit   19, 56, 3, scene_ed.mem, scene_ed.dat, scene_ed.txt, fire2, %01000111, scene_redkey, scene_redini, 1, pgScen
+.mem:
+; column1
+     db  0, 21 + #80  : dw    rotoid.scene.posx
+     db  0, 22 + #80  : dw    rotoid.scene.posy
+     db  0, 23 + #80  : dw    rotoid.scene.posz
+; column2
+     db  7, 21 + #00  : dw    rotoid.screen.posx
+     db  7, 22 + #00  : dw    rotoid.screen.posy
+     db  7, 23 + #00  : dw    med.curr
+;column3
+     db  12, 21 + #80 : dw    mob.posx
+     db  12, 22 + #80 : dw    mob.posy
+     db  12, 23 + #80 : dw    mob.posz
+;column4
+     db  19, 21 + #00 : dw    mob.scale
+     db  19, 22 + #00 : dw    mob.angle
+     db  19, 23 + #40 : dw    med.curr          ; dummy, reserved for save (read only)
+;column5
+     db  24, 21 + #00 : dw    rotoid.light.bright
+     db  24, 22 + #00 : dw    rotoid.light.contrs
+     db  24, 23 + #00 : dw    rotoid.light.shade
+;column6
+     db  28, 21 + #00 : dw    rotoid.screen.cltop
+     db  30, 21 + #00 : dw    rotoid.screen.clbot
+     db  28, 22 + #80 : dw    rotoid.scene.far
+     db  28, 23 + #80 : dw    rotoid.scene.fade
+; top bar
+     db   0,  0 + #80 : dw    mob.call
+     db   5,  0 + #80 : dw    mob.curr
+     db  10,  0 + #00 : dw    scene_ed.step
+     db  13,  0 + #a0 : dw    redscene.start
+     db  18,  0 + #a0 : dw    redscene.len
+     db  #ff
+.txt:
+     db  1, 4, 21, "sx"
+     db  1, 4, 22, "sy"
+     db  1, 4, 23, "sz"
+
+     db  1, 9, 21, "$x"
+     db  1, 9, 22, "$y"
+     db  1, 9, 23, "mn"
+
+     db  1, 16, 21, "mx"
+     db  1, 16, 22, "my"
+     db  1, 16, 23, "mz"
+
+     db  1, 21, 21, "sz"
+     db  1, 21, 22, "an"
+     db  1, 21, 23, "sv"
+
+     db  1, 26, 21, 2         ; bright icon
+     db  1, 26, 22, 3         ; contrast icon
+     db  1, 26, 23, 4         ; shade icon
+     db  0                    ; end
+
+.dat:
+;-------------------------------------------------------------------------------
+/* segment editor controls
+   Kyes 6-0
+     6,7 change values
+     8,9 move up down
+     0   reset value
+   Keys 1-5
+     1   clear screen (cycling modes)
+     2   repair buffer (sometimes needed if object overflows)
+     3   option key (some parametters has it enabled)
+     a   layer down
+     q   layer up
+   keys space, ss, m, n, b
+     space set next segment
+     m     set previous segment
+   Keys yuio
+     move object (direct change of xoff and yoff) no editor values are updated
+     ENTER - update editor values
+*/
+;-------------------------------------------------------------------------------
+
+segment_ed:     edit   18, 56, 3, seg_mem, seg_dat, seg_txt, fire, %01000111, segment_redkey, segment_redini, 1, pgScen
+seg_mem:
+; 7th bit of y-position indicates WORD
+; 6th bit of y-position indicates read-only data
+
+.py=0      : db 0, .py + #00 : dw  obj.curr                ; copy
+.py=.py+1  : db 0, .py + #00 : dw  obj.curr                ; save
+.py=.py+1  : db 0, .py + #00 : dw  obj.pos                 ; add
+.py=.py+1  : db 0, .py + #40 : dw  obj.cnt                 ; del
+.py=.py+1  : db 0, .py + #00 : dw  obj.pos                 ; pos
+.py=.py+1  : db 0, .py + #00 : dw  workspace+symobj.type
+.py=.py+1  : db 0, .py + #00 : dw  workspace+symobj.woff
+.py=.py+1  : db 0, .py + #00 : dw  workspace+symobj.yoff
+.py=.py+1  : db 0, .py + #00:  dw  workspace+symobj.xoff
+.py=.py+1  : db 0, .py + #00:  dw  workspace+symobj.y0
+.py=.py+1  : db 0, .py + #00:  dw  workspace+symobj.y1
+.py=.py+1  : db 0, .py + #00:  dw  workspace+symobj.par1
+.py=.py+1  : db 0, .py + #00:  dw  workspace+symobj.par2
+.py=.py+1  : db 0, .py + #00:  dw  workspace+symobj.leff
+.py=.py+1  : db 0, .py + #00:  dw  workspace+symobj.reff
+
+.py=.py+2  : db 0, .py + #00:  dw  rotoid.mobEdit+mobdef.posz
+.py=.py+1  : db 0, .py + #00:  dw  rotoid.mobEdit+mobdef.angle
+.py=.py+1  : db 0, .py + #00:  dw  obj.step             ; step for xoff and yoff in manual mode
+
+.py=.py+2  : db 0, .py + #c0:  dw  obj.hght             ; c0 = display word + read only
+.py=.py+1  : db 0, .py + #c0:  dw  obj.wspc
+.py=.py+1  : db 0, .py + #c0:  dw  obj.wlen
+             db     #ff
+
+; where data of edited segment starts in the editor buffer (we need to skip copy, add,... "commands")
+seg_sym: = seg_mem + 5*4 + 2                            ; 5 lines are for commands! Modify if more commands are added!
+
+seg_txt:
+.px=3
+.py=0      : db     1,.px,.py, "COPY"
+.py=.py+1  : db     1,.px,.py, "SAVE"
+.py=.py+1  : db     1,.px,.py, "ADD"
+.py=.py+1  : db     1,.px,.py, "DEL"
+.py=.py+1  : db     1,.px,.py, "#SEG"
+.py=.py+1  : db     1,.px,.py, "type"
+.py=.py+1  : db     1,.px,.py, "w-off"
+.py=.py+1  : db     1,.px,.py, "y-pos"
+.py=.py+1  : db     1,.px,.py, "x-off"
+.py=.py+1  : db     1,.px,.py, "y0"
+.py=.py+1  : db     1,.px,.py, "Hght"
+.py=.py+1  : db     1,.px,.py, "L/R"
+.py=.py+1  : db     1,.px,.py, "H/Q"
+.py=.py+1  : db     1,.px,.py, "leff"
+.py=.py+1  : db     1,.px,.py, "reff"
+
+.py=.py+2  : db     1,.px,.py, "zpos"
+.py=.py+1  : db     1,.px,.py, "angl"
+.py=.py+1  : db     1,.px,.py, "step"
+
+.py=.py+2  : db     1,.px+2,.py, "hght"        ; currently edited segment
+.py=.py+1  : db     1,.px+2,.py, "buff"        ; workspace address
+.py=.py+1  : db     1,.px+2,.py, "len"         ; len of workspace
+             db     0
+
+seg_dat: = #5800
+;                ds     10
+
+segment_redini:
+          page_ar pgScen
+          ld      hl,rotoid.scrplay.sgedit
+          call    rotoid.setScene.init
+          ret
+
+segment_redkey:
+          ld     (redix),ix
+          ld     hl,keys_seg_exeptr
+          jp     exeptr
+
+fire:     ld     a,(ix+edit.curr)
+          dec    a
+          jp     m,scopy                ;0
+          jp     z,ssave
+          dec    a                      ;1
+          jr     z,sadd
+          dec    a                      ;2
+          jr     z,sdel
+          dec    a                      ;3
+          jr     z,sedit
+          dec    a                      ;4
+          jr     z,stype
+          cp     8                      ;(13-5)
+          jr     z,sleff
+          cp     9
+          jr     z,sreff
+          cp     10
+          jp     z,szpos
+; reset remaining item to 0 on pressing fire
+
+          ld     a,(ix+edit.curr)
+          sub    5
+          ld     e,a
+          ld     d,0
+          ld     hl,(obj.edit)
+          add    hl,de
+          ld     (hl),0
+          jp     supdate
+
+stype:
+          ld     de,symobj.type
+tgl:
+          ld     hl,(obj.edit)
+          add    hl,de
+          ld     a,(hl)
+          xor    #80
+          ld     (hl),a
+          jp     supdate
+
+sreff:    ld     de,symobj.reff
+          jr     1F
+sleff:    ld     de,symobj.leff
+1         ld     hl,(obj.edit)
+          add    hl,de
+          ld     a,(hl)
+          and    #f0
+          ld     b,a
+          jr     nz,1F
+          ld     a,#08
+1         rla
+          or     b
+          xor    (hl)
+          ld     (hl),a
+          jp     supdate
+
+sadd:     call   sadd2
+          call   supdate
+          jp     sedit
+
+sadd2:    call   findendmark
+          push   af
+          push   hl
+          call   setpos
+          pop    de
+          pop    af
+          ld     (obj.pos),a
+          ld     bc,symobj
+          ldir
+          ld     a,#ff
+          ld     (de),a
+          ret
+
+sdel:     call   findendmark
+          ld     bc,symobj
+          and    a
+          sbc    hl,bc
+          ld     (hl),#ff
+          jp     supdate
+
+sedit:    call   setpos
+          ld     (obj.edit),hl
+          ex     de,hl
+          ld     hl,seg_sym
+          ld     b,symobj
+.l1:      ld     (hl),e
+          inc    hl
+          ld     (hl),d
+          inc    hl
+          inc    hl
+          inc    hl
+          inc    de
+          djnz   .l1
+          jp     supdate
+
+szpos:    ld     hl,rotoid.mobEdit+mobdef.posz
+          ld     (hl),#20
+          jp     supdate
+
+scopy:    call   clrlbuf
+          call   clrWorkspace
+          ld     a,(obj.curr)
+          add    a,a
+          ld     e,a
+          ld     d,0
+          ld     hl,obj.tab
+          add    hl,de
+          ld     e,(hl)
+          inc    hl
+          ld     d,(hl)
+          ld     a,e
+          or     d
+          ret    z         ; free slot
+          ld     hl,workspace
+          ex     de,hl
+          ld     bc,workspace.len
+          ldir
+          jp     supdate
+
+ssave:    push   ix
+          ld     ix,obj.tab
+.l2:      ld     c,(ix+0)
+          ld     b,(ix+1)
+          ld     a,c
+          or     b
+          jp     z,.freeSlot
+          ld     a,c
+          inc    a
+          jr     nz,.l1
+          ld     a,b
+          inc    a
+          jr     nz,.l1
+          pop    ix
+          ret                ; not possible to save!
+
+.l1:      inc    ix
+          inc    ix
+          jr     .l2
+
+.freeSlot:
+          call  findendmark
+.endmark: ld    de,workspace
+          push  de
+	  and   a
+          sbc   hl,de
+          ld    c,l
+          ld    b,h
+	  inc   bc
+          ld    de,(obj.last)
+          ld    (ix+0),e
+          ld    (ix+1),d
+          pop   hl
+          ldir
+          ld    (obj.last),de
+          pop   ix
+          jp    supdate
+
+findendmark:                       ; finds end of segment mark (#ff), HL=adres
+          ld    e,#ff
+.go:      ld    hl,workspace
+.nhl:     xor   a
+.l3:      cp    e
+          ret   z
+          ld    b,(hl)
+          inc   b
+          ret   z
+          ld    bc,symobj
+          add   hl,bc
+          inc   a
+          jr    .l3
+
+; direct movement of segment using xoff and yoff by STEP
+dirLeft:  ld    a,symobj.xoff
+          jr    1F
+
+dirUp:    ld    a,symobj.yoff
+1         ld    (dirSub.mod+1),a
+
+dirSub:   call  setpos
+          ld    d,0
+.mod:     ld    e,symobj.yoff
+          add   hl,de
+          ld    a,(obj.step)
+          neg
+          add   a,(hl)
+          ld    (hl),a
+          ret
+;          jp    supdate
+
+dirRight: ld    a,symobj.xoff
+          jr    1F
+
+dirDown:  ld    a,symobj.yoff
+1         ld    (dirAdd.mod+1),a
+
+dirAdd:   call  setpos
+          ld    d,0
+.mod:     ld    e,symobj.yoff
+          add   hl,de
+          ld    a,(obj.step)
+          add   a,(hl)
+          ld    (hl),a
+          ret
+;          jp    supdate
+
+; set segment position and load segment values to editor
+setpos:
+          ld     a,(obj.pos)
+          ld     e,a
+          jr     findendmark.go
+
+; moves to previous segment
+prevseg:
+          ld     a,(obj.pos)
+          and    a
+          ret    z
+          dec    a
+          ld     (obj.pos),a
+          jp     sedit
+
+; moves to next segment
+nextseg:
+          ld     a,(obj.cnt)
+          ld     b,a
+          ld     a,(obj.pos)
+          inc    a
+          cp     b
+          ret    nc
+          ld     (obj.pos),a
+          jp     sedit
+
+; this moves current segment after next segment. In case segments are overlapped, this serves like "move layer one level below"
+; layer down
+segmentDown:
+          ld     a,(obj.cnt)
+          ld     b,a
+          ld     a,(obj.pos)
+          dec    b
+          cp     b
+          ret    z
+          inc    a
+          ld     (obj.pos),a
+          ld     hl,(obj.edit)
+          ld     de,hl
+          ld     bc,symobj
+          add    hl,bc
+.move:    ld     ix,o0+o0*$100
+          call   mmu.memswap
+          call   sedit
+          jp     supdate
+
+; move current segment before previous one
+; layer up
+segmentUp:
+          ld     a,(obj.pos)
+          and    a
+          ret    z
+          dec    a
+          ld     (obj.pos),a
+          ld     hl,(obj.edit)
+          ld     de,hl
+          ld     bc,symobj
+          sbc    hl,bc
+          jr     segmentDown.move
+
+
+; addition option key. Works in combination with SOME selected rows
+options:  ld     ix,segment_ed
+          ld     a,(ix+edit.curr)
+          ld     hl,(obj.edit)
+          ld     d,0
+
+          ld     e,symobj.yoff
+          cp     7
+          jr     z,.lasty        ; YOFF
+          cp     2
+          jr     z,.copydown     ; ADD (e=remains the same)
+
+          ld     e,symobj.xoff
+          cp     8
+          jr     z,.negx         ; XOFF
+          ret
+
+; combine ADD segment and move ypos at the same time
+.copydown:
+          ld     (ix+edit.curr),7
+          call   sadd2
+          call   sedit
+          call   options
+          ld     (ix+edit.curr),2
+          jp     supdate
+
+; inverse xposition of the segment (useful for symmetrical objects)
+.negx:    add    hl,de
+          xor    a
+          sub    (hl)
+          ld     (hl),a
+          jp     supdate
+
+; move current segment y_pos after next segment's y_pos
+.lasty:   add    hl,de
+          push   hl              ; hl=address of edited segment value = yoff
+          call   findendmark
+          ld     bc,symobj
+          and    a
+          sbc    hl,bc
+          push   hl
+          pop    ix
+          ld     a,(ix+symobj.yoff)
+          add    a,(ix+symobj.y1)
+          pop    hl
+          ld     (hl),a
+          jp     supdate
+
+redcls:   ld     a,1
+          dec    a
+          and    #03
+          ld     (redcls+1),a
+          jr     z,.cls00
+          dec    a
+          jr     z,.clsff
+          dec    a
+          jr     z,.clsrom
+          ret
+
+.clsrom:  ld     hl,0
+          ld     de,#4000
+          ld     bc,6144
+          ldir
+          call   mmu.cpscr57
+          jr     redupdate
+
+.clsff:   ld     ix,#06ff
+          jr     redcls.nix
+
+.cls00:   ld     ix,#0600
+.nix:     call   z,rotoid.scrClear
+
+redupdate:
+          ld     ix,(redix)
+
+supdate:
+          call   findendmark
+          ld     (obj.cnt),a
+          ld     e,symobj
+          call   @rotoid.math.mul0808
+          inc    hl
+          ld     (obj.wlen),hl
+          call   scanHeight
+          call   editor.redraw
+          ret
+
+clrlbuf:  ld     hl,rotoid.ldata
+          ld     d,h,e,l : inc de
+          ld     bc,#300-1
+          ld     (hl),#ff
+          ldir
+          ret
+
+clrWorkspace:
+          ld     hl,workspace
+          ld     de,hl : inc de
+          ld     bc,workspace.len-1
+          ld     (hl),#ff
+          ldir
+          ret
+
+; scans height of the drawn segment and updates sys var obj.hght
+scanHeight:
+          push   ix
+          ld     ix,(obj.wspc)
+          ld     h,0,d,h,l,h
+          ld     bc,symobj
+.l1:      ld     a,(ix+symobj.type)
+          cp     02
+          jr     z,.skip
+          cp     #ff
+          jr     z,.endl
+          bit    7,a
+          jr     nz,.skip
+          ld     e,(ix+symobj.y1)
+          add    hl,de
+          ld     e,5               ; 5 bytes of segment datablock + 0 height
+          add    hl,de
+.skip:    add    ix,bc
+          jr     .l1
+.endl:    ld     (obj.hght),hl
+          pop    ix
+          ret
+
+; exeptr list for handling keyboard
+;---------------------
+keys_seg_exeptr:
+          dw     keys.run, keys_seg_15
+;          dw     keys.run, keys_seg_Cv
+          dw     keys.run, keys_seg_ag
+          dw     keys.run, keys_seg_qt
+          dw     keys.run, keys_seg_py
+          dw     keys.run, keys_seg_Eh
+          dw     keys.run, keys_seg_Sb
+          dw     0
+
+; keyboard definition structure for additional key set (1-5)
+;---------------------
+keys_seg_15:   kbd    #f7, %00011111, redcls, clrlbuf, options, dummy, dummy
+
+keys_seg_Cv:   kbd    #fe, %00011111, dummy, dummy, dummy, dummy, dummy
+keys_seg_ag:   kbd    #fd, %00011111, segmentDown, dummy, dummy, dummy, dummy
+keys_seg_qt:   kbd    #fb, %00011111, segmentUp, dummy, dummy, dummy, dummy
+
+keys_seg_py:   kbd    #df, %00000000, dummy, dirUp, dirDown, dirRight, dirLeft
+keys_seg_Eh:   kbd    #bf, %00011111, supdate, dummy, dummy, dummy, dummy
+keys_seg_Sb:   kbd    #7f, %00011111, nextseg, dummy, prevseg, dummy, dummy
+
+redix:         dw     0
+
+
+;---------------------
+; scene editor...
+getMob:
+; get source address of n-th MOB-object in the current scene_draw section
+; routine checks if n-th MOB exists.
+; input a: mob number, out: de: mob address, zero if MOB does not exist
+          ld     c,a     ; desired mob pointer
+          ld     b,0     ; mob counter
+
+.l1:      ld     a,b
+          add    a,a
+          add    a,a
+          ld     e,a
+          ld     d,0
+          ld     hl,(rotoid.run.dptr2+1)
+          add    hl,de
+          ld     e,(hl)
+          inc    hl
+          ld     d,(hl)
+          ld     a,d
+          or     e
+          ret    z                  ; ---> end mark, no change
+          ld     a,b
+          inc    b
+          cp     c
+          jr     nz,.l1
+          ld     bc,de
+          inc    hl
+          ld     e,(hl)
+          inc    hl
+          ld     d,(hl)             ; de=address of mob object
+          or     1                  ; clear zero
+          ret
+
+mobUpdate:
+; update currently selected mob with modified data
+          ld     de,(mob.curr)
+          ld     hl,mobdef.scale
+          add    hl,de
+          ex     de,hl
+          ld     hl,mob.scale
+          ld     bc,mob.len
+;          ld     a,(@page) : push   af
+;          page_ar pgScen  ; page scene data
+          ld      a,pgScen
+          page_am                                 ;page_ar pgScen  ; page scene data
+          ldir
+redret:
+;          pop    af : page_a :
+          ret                       ; page back
+
+fire2:    ld     a,(ix+edit.curr)
+          out    (#fe),a
+          ld     l,a
+          ld     h,0
+          ld     de,.firejumptab
+          add    hl,hl
+          add    hl,de
+          ld     e,(hl)
+          inc    hl
+          ld     d,(hl)
+          ld     hl,.cont
+          push   hl
+          ex     de,hl
+          jp     (hl)
+.cont:
+;          di
+          call   editor.redraw
+          ei
+          ret
+
+.firejumptab:
+          dw     .resetx, .resety, .resetz
+          dw     .resetsx,.resetsy
+          dw     .setmob
+          dw     .resetmx,.resetmy,.resetmz
+          dw     .setsize,.setangle
+          dw     .savedata
+          dw     .bright ,.contrs ,.shade
+          dw     .cltop  ,.clbot
+          dw     .far    ,.fade
+
+.resetx:  ld     hl,0   : ld  (rotoid.scene.posx),hl
+          ret
+.resety:  ld     hl,0   : ld  (rotoid.scene.posy),hl
+          ret
+.resetz:  ld     hl,0   : ld  (rotoid.scene.posz),hl
+          ret
+
+.setmob:
+;          ld     a,(@page) : push   af :
+;          page_ar pgScen
+          ld      a,pgScen
+          page_am                                 ;page_ar pgScen  ; page scene data
+          ld     a,(med.curr)
+          call   getMob
+          ret    z
+          ex     de,hl
+          ld     (mob.curr),hl
+          ld     (mob.call),bc   ; routine call
+          ld     de,mob.scale
+          ld     bc,mob.len
+          inc    hl
+          inc    hl
+          ldir
+          jp     redret
+
+; reset to defaults
+.resetsx: ld     hl,#7f : ld    (rotoid.screen.posx),hl
+          ret
+
+.resetsy: ld     hl,#3f : ld    (rotoid.screen.posy),hl
+          ret
+
+.resetmx: ld     hl,0   : ld    (mob.posx),hl
+          call   mobUpdate
+          ret
+
+.resetmy: ld     hl,0   : ld    (mob.posy),hl
+          call   mobUpdate
+          ret
+
+.resetmz: ld     hl,0   : ld    (mob.posz),hl
+          call   mobUpdate
+          ret
+
+.setsize: ld     a,(mob.scale) : xor #80 : ld (mob.scale),a
+          call   mobUpdate
+          ret
+
+.setangle:
+          ld     a,(mob.angle) : xor #80 : ld (mob.angle),a
+          call   mobUpdate
+          ret
+
+; save scene data
+.savedata:
+;          ld     a,(@page) : push   af :
+;          page_ar pgScen
+          ld      a,pgScen
+          page_am                                 ;page_ar pgScen  ; page scene data
+
+          push   ix
+          ld     ix,(rotoid.run.cont+2)
+          ld     de,(ix+rotoid.scnptr.anim)
+          ld     bc,(ix+rotoid.scnptr.alen)
+          pop    ix
+          ld     hl,redscene.data
+;          ld     (hl),e : inc hl
+;          ld     (hl),d : inc hl
+          ld     (hl),c : inc hl
+          ld     (hl),b : inc hl
+          ex     de,hl
+          ldir
+          ld     hl,rotoid.scene
+          ld     bc,rotoid.sceneSetup.len
+          ldir
+          ex     de,hl
+          xor    a
+
+.l1:      push   af
+          push   hl
+          call   getMob
+          jr     z,.endsave
+
+          ld     hl,rotoid.drawMultiObject
+          sub    hl,bc
+          jr     z,.cnt
+          ld     hl,rotoid.drawMobHDI
+          sub    hl,bc
+          jr     z,.cnt
+          pop    hl
+          jr     .skip
+
+.cnt:     pop    hl
+          ld     (hl),c : inc hl
+          ld     (hl),b : inc hl
+          ld     (hl),e : inc hl
+          ld     (hl),d : inc hl
+          ld     bc,mobdef
+          ex     de,hl
+          ldir
+          ex     de,hl
+
+.skip:    pop    af
+          inc    a
+          jr     .l1
+
+.endsave: pop    hl
+          pop    af
+          ld     de,redscene.data
+          sub    hl,de
+          ld     (redscene.len),hl
+          ; call   editor.init
+          call   editor.redraw
+          jp     redret
+
+;--- reset to defaults
+.bright: xor  a       : ld (rotoid.light.bright),a
+         ret
+.contrs: ld   a,8     : ld (rotoid.light.contrs),a
+         ret
+.shade:  xor  a       : ld (rotoid.light.shade),a
+         ret
+.far:    ld   hl,#100 : ld (rotoid.scene.far),hl
+         ret
+.fade:   ld   hl,#40  : ld (rotoid.scene.fade),hl
+         ret
+.cltop:  ld   a,16    : ld (rotoid.screen.cltop),a
+         ret
+.clbot:  ld   a,#a7   : ld (rotoid.screen.clbot),a
+         ret
+
+scene_redini:
+          page_ar pgScen
+          ld      hl,rotoid.scrplay.scedit
+          call    rotoid.setScene.init
+          ret
+
+scene_redkey:
+         call   mobUpdate
+         ld     (redix2),ix
+         ld     ix,reddef2
+         call   keys.run
+         ld     ix,(redix2)
+         ret
+
+stepUp:   ld     a,(scene_ed.step)
+          inc    a
+          ld     (scene_ed.step),a
+          ld     ix,(redix2)
+;          call   editor.init
+          call   editor.redraw
+          ret
+
+stepDown: ld     a,(scene_ed.step)
+          dec    a
+          ret    z
+          ld     (scene_ed.step),a
+          ld     ix,(redix2)
+;          call   editor.init
+          call   editor.redraw
+          ret
+
+red2cls:  ld     ix,#0600
+          call   rotoid.scrClear
+          ld     ix,(redix2)
+;          call   editor.init
+          call   editor.redraw
+          ret
+
+;---------
+reddef2:  kbd    #f7, %00011111, stepDown, stepUp, red2cls, dummy, dummy
+redix2:   dw     0
+
+;---------------------
+; mob editor
+med:
+.curr:    db      0
+mob:
+.call:    dw      0
+.curr:    dw      0
+.scale:   db      0
+.angle:   db      0
+.posx:    dw      0
+.posy:    dw      0
+.posz:    dw      0
+;---
+.end:     ; end of mob block
+.len: = .end-.scale
+
+redscene:
+.start:   dw      redscene.data
+.len:     dw      0
+;          ALIGN   #100
+;.data:    ds      #100,#ff
+.data: = temp3k.end-#100
+
+;---------------------
+; segments editor and objects
+obj:
+.curr:    db      0                 ; current object number (pos in the tab)
+.last:    dw      xnew              ; pointer to free memory for save
+.pos:     db      0                 ; position of currently edited segment
+.cnt:     db      0                 ; number of segments
+.edit:    dw      workspace         ; address of currently edited segment
+.wspc:    dw      workspace         ;
+.wlen:    dw      0                 ; length of workspace
+.hght:    dw      0                 ; height of buffer
+.step:    db      1                 ; step for xoff and yoff in manual mode (direct control keys)
+.ptab:    dw      .tab
+.tab:                               ; table of all objects
+          dw      segball
+          dw      segball2
+          ds      8,0
+          dw      #ffff      ; end of room
+
+segball:   mSegBall  #78,#0f,#00
+segball2:  mSegBall  #40,#0f,#00
+
+workspace: = temp3k
+.len:      = #100
+xnew:      = temp3k+#100
+
+;          align   #100
+;workspace:
+;          ds      symobj*16,#ff
+;.len:     =       $-workspace
+;          db      #ff
+;
+;xnew:     ds      #100
+
+          display "red start         :",_s," len:",$-_s, " end:", $

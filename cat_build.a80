@@ -1,0 +1,178 @@
+; page definition
+
+        define sinclair
+
+        IFDEF sinclair
+              define o0 #50
+              define o1 #51
+              define o2 #52
+              define o3 #53
+              define o4 #54
+              define o5 #55
+              define o6 #56
+              define o7 #57
+        ELSE
+              define o0 #10
+              define o1 #11
+              define o2 #12
+              define o3 #13
+              define o4 #14
+              define o5 #15
+              define o6 #16
+              define o7 #17
+        ENDIF
+                DEVICE   ZXSPECTRUM128
+                ORG      25000
+start:
+                jr       motoroff
+                jr       deblock
+
+motoroff:       ld       b,#80                  ; this code stops FDD motor on +3
+1               rst      #38
+                djnz     1B
+
+test48:         di
+                ld       hl,#c000
+
+                ld       a,o1
+                out      (#fd),a
+                ld       (hl),a
+
+                ld       a,o3
+                out      (#fd),a
+                ld       (hl),a
+
+                ld       a,o1
+                out      (#fd),a
+                cp       (hl)
+                jr       z,deblock
+
+1               ld       a,r
+                and      7
+                out      (#fe),a
+                jr       1B
+
+deblock:
+                ld       hl,block1.p1        ;p1
+                ld       a,o1
+                scf
+                call     dzxpage
+
+                ld       hl,block1.p2
+                ld       a,o3
+                scf
+                call     dzxpage
+
+                ld       hl,block1.p3
+                ld       a,o4
+                scf
+                call     dzxpage
+
+                ld       hl,block1.p4
+                ld       a,o7
+                scf
+                call     dzxpage
+
+                ld       hl,block1.p5+(block1.e-block1.p5-1)
+                ld       de,#ffff
+                ld       bc,block1.e-block1.p5
+                lddr
+                inc      de
+                ex       de,hl
+                ld       de,#6a00
+                call     dzx7s
+                ld       hl,#feff
+                ld       de,#ffff
+                ld       bc,#9500
+                lddr
+                jp       #6b00
+
+; cy=zx7 / nc=lze
+dzxpage:        out      (#fd),a
+                ld       de,#c000
+                jr       c,1F
+                call     delze
+                jr       2F
+1               call     dzx7s
+2               ld       a,o0
+                out      (#fd),a
+                ret
+
+dzx7s:          include  "libs/dzx7_standard.asm"
+delze:          include  "libs/DecLze01.asm"
+
+run_end:
+;------------------------------------------------
+block1:
+                ORG      run_end
+.b = $
+.p1:             incbin   "bin/p1.bin.zx7"
+.p2:             incbin   "bin/p3.bin.zx7"
+.p3:             incbin   "bin/p4.bin.zx7"
+.p4:             incbin   "bin/p7.bin.zx7"
+.p5:             incbin   "bin/main.bin.zx7"
+
+                DISPLAY  "end:",$," len:",$-.b:
+.e: = $
+                display .p1
+                display .p2
+                display .p3
+                display .p4
+                display .p5," ", .e-.p5
+                display .e
+
+                SHELLEXEC "del release\cat.tap"
+                SAVETAP  "release/cat.tap",CODE,"cat.end", start, $-start
+/*
+;------------------------------------------------
+block2:
+                ORG      run_end
+.b = $
+.p1:             incbin   "bin/p1.lze"
+.p2:             incbin   "bin/p6.bin.zx7"
+.p3:             incbin   "bin/p7.bin.zx7"
+                DISPLAY  "end:",$," len:",$-.b:
+.e: = $
+.len1: = .p2-.p1
+.len2: = .p3-.p2
+.len3: = .e-.p3
+                SAVETAP  "release/void.tap",CODE,"VOID_2", run_end, $-.b
+;------------------------------------------------
+block3:
+                ORG      run_end
+.b = $
+.p1:             incbin   "bin/main.bin.zx7"
+                DISPLAY  "end:",$," len:",$-.b:
+.e: = $
+.len1: = .e-.p1
+                SAVETAP  "release/void.tap",CODE,"VOID_3", run_end, $-.b
+
+                DISPLAY  "load addr:",run_end
+;------------------------------------------------
+*/
+
+;delzx:          include  "libs/DecLzx01.asm"
+
+; input: hl, de, bc - same as ldir
+;        xl-source page, xh-destination page
+
+/*
+pldir:          push     hl
+                ex       de,hl
+                exx
+                pop      hl
+                ld       bc,#7ffd
+                ld       e,xl                    ; source page
+                ld       d,xh                    ; destination page
+                exx
+
+.loop           exx
+                out      (c),e
+                ld       a,(hl) : inc hl
+                out      (c),d
+                exx
+                ld       (hl),a
+                cpi
+                jp       pe,.loop
+                ret
+*/

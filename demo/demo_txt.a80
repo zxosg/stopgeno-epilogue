@@ -1,0 +1,67 @@
+_tb:                        ; text begin to calculate length
+fzTitles1:
+                sfzx     ffnt4,.text,8,0
+.text:          db       22,176,8
+fzTitles2:
+                ORG      temp3k
+;two parts with labels - "mid", "end"
+                include  "demo/vscroll/cats_titles.a80"
+
+;                ORG      fzTitles2
+;                include  "demo/fzcommand.a80"
+;                include  "demo/subtitles.a80"
+;                include  "demo/darkness.a80"
+;                include  "demo/vprint.a80"
+
+;----------------------------------------------------------------------------
+; between scenes titles
+;----------------------------------------------------------------------------
+/*
+txb01:          sfzx    ffnt5,txb01.text,0,0
+.text:          db      22,88,0
+                db      "THOUSANDS OF YEARS AGO..."
+;                db      "Hundreds of thousands years ago..."
+                db      #ff
+
+txb02:          sfzx    ffnt5,txb02.text,0,0
+.text:          db      22,88,0
+;                db      "ZETA RETICULI SOLAR SYSTEM 2125"
+                db      "ZETA II RETICULI SOLAR SYSTEM"
+                db      13,13,"YEAR 2125"
+                db      #ff
+
+txb03:          sfzx    ffnt5,txb03.text,0,0
+.text:          db      22,88,0
+                db      "ALIEN WORLD"
+                db      13,13,"MILLIONS OF LIGHTYEARS AWAY"
+                db      #ff
+
+txb04:          sfzx    ffnt5,txb04.text,0,0
+.text:          db      22,88,0
+                db      "HOLLISTOWN, EARTH"
+                db      13,13,"PRESENT DAY"
+                db      #ff
+
+txb05:          sfzx    ffnt5,txb05.text,0,0
+.text:          db      22,88,0
+                db      "TO BE CONTINUED..."
+                db      #ff
+
+txb06:          sfzx    ffnt5,txb06.text,0,0
+.text:          db      22,88,0
+                db      "48 YEARS LATER..."
+                db      #ff
+
+txb07:          sfzx    ffnt5,txb07.text,0,0
+.text:          ;db      22,  64 ,80, "YOU WATCHED"
+                ;db      22,  80,112, "V O I D"
+                ;db      22, 100, 52, "A MOVIE BY INVADERS"
+
+.y: = 88
+                db      22, .y    ,118, "VOID"
+                db      22, .y+8  ,100, "INVADERS"
+                db      22, .y+16 ,116, "2020"
+                db      #ff
+*/
+
+           display "** text :",_tb," len:",$-_tb

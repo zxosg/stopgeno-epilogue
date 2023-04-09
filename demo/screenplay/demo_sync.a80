@@ -1,0 +1,20 @@
+; demo_sync.a80
+syncid_008: = 256             ;Blueprint fade in
+syncid_010: = 544             ;Texline 1
+syncid_018: = 608             ;Texline 2
+syncid_020: = 672             ;Texline 3
+
+syncid_028: = 704             ;Texline 4
+syncid_030: = 720             ;Texline 5
+syncid_038: = 736             ;Texline 6
+
+syncid_040: = 928             ;BP fadeout
+syncid_048: = 1024            ;launch
+syncid_04a: = 1100            ;start of beacon blinking
+syncid_049: = 1570            ;end of beacon blinking
+
+syncid_050: = 1600            ;space before disengage
+syncid_058: = 2024            ;catship leaving earth
+syncid_061: = 6550            ;end of scrolling
+syncid_060: = 6670            ;cheese planet
+syncid_068: = 7063            ;crashship

@@ -1,0 +1,3378 @@
+; moving macros and definitions to rotoid_def.inc
+; 128k pages
+pgMult:    = o6       ; multiplication table
+pgSqrt:    = o4       ; square root table
+pgScen:    = o0       ; page with scenes and object data
+
+        MODULE rotoid
+_rt:
+
+sqrt:      = #c000
+mult:      = #c000
+
+; perspective focal distance (0=256, 1=128, 2=64...)  
+_focal:    = 3
+_znear:    = #0100>>_focal
+; how far we can see - maximal visible z-distance
+_far:      = #0180
+; fade out distance
+_fade:     = #0000
+
+maxradius: = 128
+angle:     = 16
+                
+;        ORG     #8000
+        ALIGN   #100
+;----------------
+; tables for horizontal line
+linetab:  ds    #200    ; address based on Y
+lineadd:  ds    #100    ; add_to_address based on X
+linemr:   ds    #100    ; right side gfx
+lineml:   ds    #100    ; left side gfx
+pwrt:     ds    #200    ; power table      
+;----------------
+; tables for objects: xpos data table
+ldata:    ds    #100    ; linedata right
+ldatm:    ds    #100    ; mid        
+ldatl:    ds    #100    ; left                             
+sintab:   ds    #100
+; ------------------
+; dithering patterns
+dthPattern:
+          ds    #40   ; dither pattern
+sortzp:   ds    #10     ; space for sorting z-positions
+; ------------------
+; edge table
+edtab:    db    %01111111
+          db    %00111111
+          db    %00011111
+          db    %00001111
+          db    %00000111
+          db    %00000011
+          db    %00000001
+          db    %00000000
+          
+          db    %00000000
+          db    %10000000
+          db    %11000000
+          db    %11100000
+          db    %11110000
+          db    %11111000
+          db    %11111100
+          db    %11111110
+
+; data
+;------------------------------------------------------
+;          include "demo/data/rotoid/_rt_objects.a80 "
+;          include "demo/data/rotoid/_rt_scenes.a80"
+
+; system variables
+;------------------------------------------------------
+lsxy:     objdef  0                                ; current object variables (modified by setObject)
+
+vpage:                    ; page with vram bit set
+.mult:    db      0
+.sqrt:    db      0
+.scen:    db      0
+.vram:    db      0
+
+mob:
+.posx:    dw      0
+.posy:    dw      0
+.posz:    dw      0                                            
+
+;-------------------------------start of block stored by scene editor
+scene:
+.posx:    dw      0
+.posy:    dw      0
+.posz:    dw      0
+.far:     dw      _far
+.fade:    dw      _fade
+
+light:
+.posx:    dw      #c000
+.posz:    dw      #070
+.bright:  db      #00
+.contrs:  db      #09
+.angle:   db      0
+.leff:    db      0
+.reff:    db      0
+.shade:   db      #08
+.mode:    db      0             ; bit 0: 0 = angle is calculated from high byte of posx
+                                ;        1 = angle is calculated from low byte of posx
+                                ; bit 1: 0 = light_z is ignored for brightness
+                                ;        1 = (object_z - light_z)<0 dark, >0 bright
+screen:
+.posx:    dw      127
+.posy:    dw      64
+.cltop:   db      8
+.clbot:   db      191
+.color:   db      5
+
+currObj:
+.ptr:     dw      0                                ; current object pointer
+.angle:   db      0
+.ldata:   db      0                                ; used for left side (store previous pointer)
+.posx16:  dw      0                                ; temporary position x + x_offset of currently drawn segment
+;-----
+;sceneSetup
+;.len:  = sceneSetup - scene
+
+sceneSetup.len = $ - scene
+
+;-------------------------------end of saved block
+;        display "scene setup length:",sceneSetup.len
+
+init:
+        display "rotoid module     :",_rt, " len:",init-_rt
+        ReturnVramAfterInterrupt
+        callix  iniDthPattern, dthData.v0
+;---
+; rotoid tables to calculate circle and shadow          
+        callix  scrClear,#0400
+        xor     a
+        out     (#fe),a
+
+        IFDEF _multabXls
+          rscLoad      KRscMultab, res_tab
+          rscUnpackTMP KRscMultab, res_tab
+          ld    a,pgMult
+          page_c
+          ld    hl,#c000
+          ld    bc,#4000
+          call  rsc.reverse
+        ENDIF
+
+        IFDEF _multabBmp
+          rscLoad      KRscMultab, res_tab
+          rscUnpackTMP KRscMultab, res_tab
+          ld    a,pgMult
+          page_c
+          call    mkmultab_bitmap
+        ENDIF
+
+        IFDEF _multabClc
+          ld    a,pgMult
+          page_c
+          call    mkmultab_calc
+        ENDIF
+
+        page_ar pgSqrt
+        call    mksqrt
+        call    mkpwrt
+; line routine tables
+        call    mkldeftab_du
+        call    mklinetab
+        ld      hl,sintab
+        ld      a,#7f
+        ld      c,00
+        call    @mksnt
+        page_ar pgScen
+        ld      hl,scrplay.part1
+;        ld      hl,scrplay.sgedit
+        call    setScene.init
+        ret
+
+; input page where gfx will be drawn
+; puts appropriate page numbers into variables
+; !! returns in and with A in scene page !!
+setPageVars:
+        ld      (run.vpage+1),a
+        and     8
+        ld      (vpage.vram),a
+        ld      c,a
+        or      pgMult
+        ld      (vpage.mult),a
+        ld      a,c
+        or      pgSqrt
+        ld      (vpage.sqrt),a
+        ld      a,c
+        or      pgScen
+        ld      (vpage.scen),a
+        page_c
+        ret
+;---------------------------------
+run:
+.vpage: ld      a,o7                          ; drawing page & screen
+        xor     #0a                           ; XOR #0a during normal execution
+
+        if debuglevel>0
+         ld      a,o5
+        endif
+        call    setPageVars
+
+        debug_border_init
+;---------------------------------
+.scene: scf                                   ; cnmScreenplayEnable / Disable
+        call    c,setScene.run
+
+.dptr1: ld      hl,s_edit.erase
+        call    @exeptr                       ;call always
+
+.dptr2: ld      hl,s_edit.draw
+.dcall: call    @exeptr                       ; modify to run once new scene is initiated
+
+.dptr3: ld      hl,s_edit.anim                ; call animation
+.aonof: scf                                   ; toggle on/off
+        call    c,@exeptr
+
+.srot:  ld      a,0
+        rrca
+        ld      (.srot+1),a
+        ret     nc                            ; ret until all object are erased
+
+;-- set new scene
+.cont:  ld      ix,#5555                      ; set new object data pointers
+        xor     a
+        ld      (run.srot+1),a
+        ld      hl,@exeptr
+        ld      (run.dcall+1),hl
+;---
+        ld      hl,(ix+scnptr.erase)
+        ld      (run.dptr1+1),hl              ; erase
+        ld      hl,(ix+scnptr.draw)
+        ld      (run.dptr2+1),hl              ; draw
+        ld      (run.dptr4+1),hl              ; draw in postinit (fade in draw to vram0)
+        ld      hl,(ix+scnptr.anim)
+        ld      (run.dptr3+1),hl              ; anim
+        ld      hl,(ix+scnptr.pini)
+        ld      (.pinicall+1),hl
+
+        ld      hl,.postinit
+        push    hl
+        ld      hl,(ix+scnptr.init)
+        jp      (hl)                          ; initialize scene
+
+;--- fade in
+.postinit:
+        ld      a,#55                         ; modified from setScene (option for scene defined in _rt_scenes.a80)
+        and     #10                           ; KSceneFadeIn
+        jr      z,.pinicall
+;---
+        ld      a,o5+8
+        call    setPageVars
+
+        ld      a,o7+8
+        page_c
+
+        ld      h,#d8
+        ld      e,#00
+        call    mmu.clatr
+
+        ld      a,(vpage.scen)
+        page_c
+
+.dptr4: ld      hl,s_edit.draw                ; draw objects on the screen
+        call    @exeptr
+
+        ld      a,o7+8
+        page_c
+
+        ld      hl,#4000                      ; copy pixels to vram1
+        ld      de,#c000
+        ld      bc,#1800
+        ldir
+
+        ld      a,(.postinit+1)               ; KSceneFadeIn check
+        and     #20
+        jr      z,.pinicall
+;---
+        call    egl.atrFadeIn.ini
+        ld      b,#08                         ; fade in
+2       exx
+        halt
+        halt
+        ld      a,(#5800)
+        rrca
+        rrca
+        rrca
+        and     7
+        out     (#fe),a
+        call    egl.atrFadeIn.run
+        exx
+        djnz    2B
+
+.pinicall:
+        ld      hl,#5555
+;        debug_border_halt 3
+        ld      a,h
+        or      l
+        ret     z
+        ld      a,(vpage.scen)
+        page_c
+        jp      (hl)
+
+;---------------------------------
+; input IX
+setScene:
+        push    ix
+        pop     hl
+.init:  ld      (scrplay),hl
+        jr      .icnt
+;        ld      (run.cont+2),ix
+;--- modify drawing calls to erase both screens
+.cont:
+        ld      a,#04
+        ld      (run.srot+1),a                ; make sure objects are erased
+.nodel: nop                                   ; this will be modified to ret for continuous scene cut
+        ld      hl,@dummy
+        ld      (run.dcall+1),hl
+        ret
+
+.run:   ld      hl,0                          ; modified
+        dec     hl
+        ld      (.run+1),hl
+        ld      a,h
+        or      l
+        ret     nz
+
+.next:
+        ld      hl,(scrplay)
+.icnt:  ld      c,(hl) : inc hl               ; bc=pointer to scene block
+        ld      b,(hl) : inc hl
+        ld      e,(hl) : inc hl               ; de=scene duration (d-reg 7bit=1 scene is not cleared)
+        ld      d,(hl) : inc hl
+        ld      a,c
+        or      b
+        ret     z                             ; end of screenplay
+        ld      (run.cont+2),bc               ; set scene block at main run code
+        ld      (.run+1),de                   ; store new counter of scene iterations
+
+        ld      c,(hl) : inc hl               ; a - scene options
+        ld      (scrplay),hl
+;----
+        ld      a,c
+        ld      (run.postinit+1),a
+        and     #80                           ; KSceneNoCut   bit7 = continuous scene - transitions without erasing objects
+        add     a,#49                         ; use RET or (LD C,C = NOP)
+        ld      (.nodel),a
+        bit     6,c                           ; KSceneFadeOut bit6 = fade out scene with attrs
+        call    nz,egl.atrFadeFull
+        jp      setScene.cont
+
+sceneCnt: = setScene.run+1                    ; expose count of render passes for current scene
+
+;---------------------------------
+; interpret data and draw into buffer
+drawObject:
+        call    calcRight
+; ----  is object visible?         
+        ld      a,(lsxy.clip)
+        cp      2
+        ret     nc                 ; no - ret and go to next object
+; ----  yes, do the rest        
+        call    calcLeft
+        call    calcMid
+; draw data
+        ld      a,(run.vpage+1)
+        page_c
+        call    draw16
+        ld      a,(vpage.scen)
+        page_c
+        ret
+
+;---------------------------------
+animate:
+; this service is used to rotate object "behind" and "in front" of other objects
+; requires two objects to be defined - one is first (back) of in the MOB object, second is last (front) in the MOB object
+; routine then swaps option bit to hidden/visible between front/back objects based on the angle
+.rotoid_one_hidden:
+        ld    a,(ix+objani.angle)
+        ld    e,(ix+objani.amplitude)
+        call  math.cos
+        ld    l,a
+        add   a,a
+        sbc   a,a
+        ld    h,a
+        ld    c,(ix+objani.offset)
+        ld    b,0
+        add   hl,bc
+
+        push  hl
+        ld    a,(@fps)
+        ld    e,a
+        ld    a,(ix+objani.speed)
+        ld    l,a
+        bit   0,(ix+objani.options)
+        call  z,math.mul0808
+        ld    c,(ix+objani.angle)
+        ld    a,l
+        add   a,c
+        ld    (ix+objani.angle),a
+
+        pop   hl
+        ex    de,hl
+        ld    a,c
+        and   a
+        jp    m,.rotoid_one_hidden_back
+        ld    hl,(ix+objani.front_pos)
+        ld    (hl),e : inc hl : ld (hl),d
+        ld    hl,(ix+objani.front_options)
+        res   7,(hl)
+        ld    hl,(ix+objani.back_options)
+        set   7,(hl)
+        ret
+
+.rotoid_one_hidden_back:
+        ld    hl,(ix+objani.back_pos)
+        ld    (hl),e : inc hl : ld (hl),d
+        ld    hl,(ix+objani.front_options)
+        set   7,(hl)
+        ld    hl,(ix+objani.back_options)
+        res   7,(hl)
+        ret
+
+; this routine just uses cos table to alternate a byte in memory
+.sin:
+        ld    a,(ix+anicos.angle)
+        ld    e,(ix+anicos.amplitude)
+        call  math.cos
+        ld    l,a
+        add   a,a
+        sbc   a,a
+        ld    h,a
+        ld    a,(ix+anicos.offset)
+        ld    c,a
+        add   a,a
+        sbc   a,a
+        ld    b,a
+        add   hl,bc
+        push  hl
+
+        ld    a,(@fps)
+        ld    e,a
+        ld    a,(ix+anicos.speed)
+        ld    l,a
+        bit   0,(ix+anicos.options)
+        call  z,math.mul0808
+        ld    c,(ix+anicos.angle)
+        ld    a,l
+        add   a,c
+        ld    (ix+anicos.angle),a
+
+        pop   hl
+        ex    de,hl
+        ld    hl,(ix+anicos.mod_ptr)
+        ld    (hl),e : inc hl : ld (hl),d
+        ret
+
+; palette changing routine. Routine gets data from table and alters byte specified
+; in the pointer. In case that mode is #80, it pulls two bytes from table and stores
+; two bytes into pointer (used for leff,reff)
+
+.pal_ini:
+        ld    (ix+sympal.curr_cnt),1
+        ld    hl,(ix+sympal.pal_ptr)
+        jr    2F
+
+.pal:   ld    a,(@fps)
+        ld    c,a
+        ld    a,(ix+sympal.curr_cnt)
+        sub   c
+        ld    (ix+sympal.curr_cnt),a
+        ret   p
+        ld    c,(ix+sympal.mode)
+        bit   5,c
+;        bit   5,(ix+sympal.mode)             ; bit 5=1 - #01 endmark
+        ld    a,_deca
+        jr    nz,1F
+        ld    a,_inca
+1       ld    (.test),a
+        ld    a,(ix+sympal.pal_cnt)
+        ld    (ix+sympal.curr_cnt),a
+        ld    hl,(ix+sympal.pal_cptr)
+        ld    de,(ix+sympal.val_ptr)
+        ld    a,(hl)
+.test:  inc   a
+        jr    nz,1F
+        dec   hl                              ; get back previous value
+        bit   6,c
+;        bit   6,(ix+sympal.mode)             ; bit 6=1 - do not repeat sequence
+        ret   nz
+        ld    hl,(ix+sympal.pal_ptr)
+1       ldi
+        bit   7,(ix+sympal.mode)
+        jr    z,2F
+        ldi
+2       ld    (ix+sympal.pal_cptr),hl
+        ret
+
+; link objects. Routine gets value FROM address and puts it to destination address
+; value is modified by offset
+.link:
+        ld    bc,(ix+link.offset)
+        ld    hl,(ix+link.from_ptr)
+        ld    e,(hl)
+        inc   hl
+        ld    d,(hl)
+        ex    de,hl
+        add   hl,bc
+        ex    de,hl
+        ld    hl,(ix+link.to_ptr)
+        ld    (hl),e
+        inc   hl
+        ld    (hl),d
+        ret
+
+.linkxyz:
+        ld    hl,(ix+linkxyz.from_ptr)
+        ldi   de,(hl)
+        ex  de,hl
+         ld    bc,(ix+linkxyz.offset_x)
+         add   hl,bc
+         push  hl
+        ex de,hl
+
+        ldi   de,(hl)
+        ex  de,hl
+         ld    bc,(ix+linkxyz.offset_y)
+         add   hl,bc
+         push  hl
+        ex de,hl
+
+        ldi   de,(hl)
+        ex  de,hl
+         ld    bc,(ix+linkxyz.offset_z)
+         add   hl,bc
+         ld    (.modz+1),hl
+;--
+        ld    hl,(ix+linkxyz.to_ptr)
+        pop   de
+        pop   bc
+        ldi   (hl),bc
+        ldi   (hl),de
+.modz:  ld    de,#5555
+        ld    (hl),de
+        ret
+
+; modifies hidden bit of the objdef in every loop. Making stroboscopic effect
+; e.g. used for flame on a rocket
+.strobe:
+        ld      a,(ix+objdef.options)
+        xor     #80
+        ld      (ix+objdef.options),a
+        ret
+.hide:  set     7,(ix+objdef.options)
+        ret
+.show:  res     7,(ix+objdef.options)
+        ret
+;---------------------------------
+;-- move xyz
+; param No:   Description:
+;        1:  offset to base address
+;        2:  base address
+;      3-6:  increment x,y,z
+; examples:
+;          dw moveXYZ, 0       , scene, #0001,#fffa,#fff8                 ; move scene
+;          dw moveXYZ, mobdef.posx, mobStat, #0000, #0000, #0001          ; move object mobStat in position X
+
+.moveXYZf:
+        ld      a,(@fps)
+        jr      1F
+.moveXYZ:
+        ld      a,1
+1       ld      (fpstmp),a
+        pop     hl                  ;
+        pop     hl                  ; address of params
+        ld      c,(hl) : inc     hl ; x-increment
+        ld      b,(hl) : inc     hl
+        ld      de,(ix+0)
+        ex      de,hl
+;        ld      a,(fpstmp)
+1       add     hl,bc
+        dec     a
+        jr      nz,1B
+        ld      (ix+0),hl
+        ex      de,hl
+        ld      c,(hl) : inc     hl ; y-increment
+        ld      b,(hl) : inc     hl
+        ld      de,(ix+2)
+        ex      de,hl
+        ld      a,(fpstmp)
+1       add     hl,bc
+        dec     a
+        jr      nz,1B
+        ld      (ix+2),hl
+        ex      de,hl
+        ld      c,(hl) : inc     hl ; z-increment
+        ld      b,(hl) : inc     hl
+        ld      de,(ix+4)
+        ex      de,hl
+        ld      a,(fpstmp)
+1       add     hl,bc
+        dec     a
+        jr      nz,1B
+        ld      (ix+4),hl
+        ex      de,hl
+        push    hl                  ; hl=address of next execute block
+        jp      @exeptr.loop        ; go back to exeptr
+
+;---    accelerated cyclic movement
+        include "demo/rotoid/anim_move_cycl16.a80"
+
+;---    move with counter
+;moveCnt
+;moveCntf
+        DEFINE _defAnimCnt
+        include "demo/rotoid/anim_move_cnt.a80"
+        include "demo/rotoid/anim_move.a80"
+
+;---    accelerated move
+;moveAcc
+;moveAccf
+        DEFINE _defAnimAcc
+        include "demo/rotoid/anim_move_accel.a80"
+
+;--- looped movement (e.g. z-scroll)
+.loop:
+       pop    hl           ; exeptr loop ret address
+       pop    hl           ; address of data block
+
+       ld     (.ltm1+1),hl ; store address of temp
+       ld     (.ltm2+1),hl
+       ldi    de,(hl)      ; (temp)
+       ldi    bc,(hl)      ; target comparator
+       ld     (.ltm3+1),bc
+       ex     de,hl
+       sub    hl,bc        ; cp temp with target
+       ex     af,af        ; save z
+       add    hl,bc        ; get back hl
+       ex     de,hl
+       ldi    bc,(hl)      ; load increment
+       push   hl           ; push addr of next exelist block
+       ex     de,hl
+       add    hl,bc        ; increment temp
+       ex     af,af
+.ltm2: ld     (#5555),hl
+       jp     nz,1F
+; -- recover initial position
+       ld     hl,0
+.ltm1: ld     (#5555),hl
+.ltm3: ld     de,#5555
+       sub    hl,de
+       add    hl,bc
+       ld     bc,hl
+; -- increment position
+1      ld     l,(ix+0)
+       ld     h,(ix+1)
+       add    hl,bc
+       ld     (ix+0),l
+       ld     (ix+1),h
+       jp     @exeptr.loop        ; go back to exeptr
+
+;-----------------------------
+; sort and then draw
+bsort:       
+       pop    hl
+       pop    hl
+
+; copy z-positions to sort buffer       
+       ld     a,xl
+       ld     (.sl+1),a
+       ld     (.dt+2),hl
+       push   hl
+       push   hl
+       pop    ix       
+       ld     iy,sortzp       
+       ld     bc,4
+.l1:   ld     de,mobdef.posz
+       ld     hl,(ix+2)
+       add    hl,de
+       ld     e,(hl)
+       inc    hl
+       ld     d,(hl)
+       ld     (iy+0),de
+       inc    iy
+       inc    iy
+       add    ix,bc
+       dec    a
+       jp     nz,.l1
+
+; (bubble) sort and swap pointers to objects   
+.l3:   ld    iy,sortzp       
+.dt:   ld    ix,#5555
+.sl:   ld    b,#55
+       res   7,c
+.l2:   ld    hl,(iy+0)
+       ld    de,(iy+2)
+       and   a   
+       sbc   hl,de
+       jp    nc,.nswp
+       add   hl,de
+
+       ld    (iy+0),de
+       ld    (iy+2),hl
+
+       ld    hl,(ix+2)       ; swap pointers
+       ld    de,(ix+6)
+       ld    (ix+2),de
+       ld    (ix+6),hl
+
+       ld    hl,(ix+0)       ; swap calls
+       ld    de,(ix+4)
+       ld    (ix+0),de
+       ld    (ix+4),hl
+
+       set   7,c
+.nswp:
+  .2   inc   iy
+  .4   inc   ix
+       djnz  .l2
+       bit   7,c
+       jp    nz,.l3
+       jp    @exeptr.loop   ; return
+        
+;----------
+; swaps double buffered data for erasing object
+; lsxy+objdef.bbwdth with lsxy+objdef.bbwdth_ 
+; length is objdef.bbwdth_-objdef.bbwdth
+swapVram:
+        ld    hl,iy
+swapVram2:
+        ld    bc,objdef.bbwdth
+        add   hl,bc
+        ld    e,l,d,h
+        ex    de,hl
+        ld    bc,objdef.bbwdth_-objdef.bbwdth
+.go:    add   hl,bc
+        ex    de,hl
+        
+        ld    b,c
+.l1:    ld    c,(hl)
+        ld    a,(de)
+        ld    (hl),a
+        ld    a,c
+        ld    (de),a
+        inc   de
+        inc   hl
+        djnz  .l1
+        ret
+
+setObject:
+        ld    (currObj.ptr),hl
+        ld    de,lsxy
+        ld    bc,objdef
+        ldir
+        ld    a,(lsxy.options)
+        and   a
+        ret
+
+setObjectOrigin:
+; persp relative posx
+        ld      hl,(lsxy.rposx)
+        ld      bc,(mob.posz)
+        ld      a,(lsxy.options)
+        bit     5,a
+        call    z,persp16b
+        ld      de,(mob.posx)
+        add     hl,de
+        ld      de,(screen.posx)
+        add     hl,de
+        ld      (lsxy.posx16),hl 
+; persp relative posy (posz in bc)
+        ld      hl,(lsxy.rposy)
+        ld      a,(lsxy.options)
+        bit     5,a
+        call    z,persp16b
+        ld      de,(mob.posy)
+        add     hl,de
+        ld      de,(screen.posy)
+        add     hl,de
+        ld      (lsxy.posy16),hl 
+        ret
+   
+updateObject:
+        ld   de,(currObj.ptr)
+        ld   hl,lsxy
+        ld   bc,objdef
+        ldir
+        ret
+             
+eraseMultiObject:
+        ld    hl,(ix+mobdef.objptr)
+.l1:    push  hl
+        push  hl
+        pop   iy
+        call  swapVram2
+        call  eraseObject
+        ld    a,(vpage.scen)
+        page_c
+        pop   hl 
+        ld    bc,objdef+1
+        add   hl,bc
+        ld    a,(hl)        ; test end of the list (high byte is =0, low byte is command)
+        dec   hl
+        and   a
+        jr    nz,.l1
+        ret
+
+; draws multi object, input: ix = MOB object address
+drawMultiObject:
+        ld      hl,(ix+mobdef.posz)
+        ld      de,(scene.posz)              ; calculate coords
+        sub     hl,de                        ; distance from observer to object
+;-- object size based on z-distance
+        ld      bc,hl
+        ld      a,(ix+mobdef.scale)
+        and     a
+        res     7,a                          ;
+        jp      m,.c2                        ; if scale >#80 then no perspective correction for whole object
+                                             ;                    scale will be used as is (and #7f)
+
+        ld      de,(scene.far)               ; max visible distance 
+        sub     hl,de
+        jp      p,.setClip
+
+.s1:    ld      (mob.posz),bc
+        bit     7,b                          ; if z-pos in scene is negative, then return
+        ret     nz
+        ld      l,a
+        ld      h,0
+        call    persp16b                     ; rescale according to z-pos
+        ld      a,h                          ; new_scale >255, then ret
+        and     a
+;        ret     nz
+        jp      nz,.setClip                  ; mark all objdefs as clipped = do not erase
+        ld      a,l
+        rla
+        sbc     a,a
+        or      l
+        and     #7f                          ; scale >127, then 127
+.c2:    ld      (.objScale+1),a
+
+;-- persp posx                
+        ld      hl,(ix+mobdef.posx)
+        ld      de,(scene.posx)
+        sub     hl,de
+        call    persp16b
+        ld      (mob.posx),hl
+;-- persp posy
+        ld      hl,(ix+mobdef.posy)
+        ld      de,(scene.posy)
+        sub     hl,de
+        call    persp16b
+        ld      (mob.posy),hl
+;-- same angle for complete object
+        ld      a,(ix+mobdef.angle)
+        ld      (.objAngle+1),a
+
+        ld      hl,(ix+mobdef.objptr)
+        push    hl
+        call    setLight                ; also calls calcLight when required
+        pop     hl
+
+;--- draw objdef object (same z, different segments and positions)
+.l1:
+        ld      iy,hl
+        push    hl
+        call    setObject
+        jp      m,.skipHidden
+        call    setObjectOrigin
+;-- global vs local scale
+        ld      a,(iy+objdef.scale)        ; if object hold individual scale
+        ld      (.scan+1),a
+        and     a                          ; then use it instead of global scale
+        jr      z,.objScale
+        res     7,a
+        jp      m,.scl                     ; if bit 7 is set, then use obj scale as is
+        ld      e,a
+        ld      a,(.objScale+1)            ; otherwise, make it relative to global scale
+        call    math.mul87                 ; scale = scale_local * scale_global
+        jr      .scl
+.objScale:
+        ld      a,#55                      ; global scale calculated
+.scl:   ld      (lsxy.scale),a
+
+;-- global vs local angle
+.ss1:   ld      a,(iy+objdef.angle)        ; if object holds individual angle
+        ld      (.scan+2),a
+        and     a                          ; then use instad of global angle
+        res     7,a
+        jp      m,.san
+.objAngle:  
+        ld      a,#55                      ; global light angle
+        and     a                          ; bit 7,a
+        res     7,a
+        jp      m,.san
+        ld      a,(light.angle)
+.san:   ld      (currObj.angle),a
+;-- draw single object
+        call    drawObject
+;-- update data
+.scan:  ld      hl,#5555                   ; restore local scale and angle
+        ld      (lsxy.scale),hl            ; !!! keep objdef format
+        call    updateObject
+
+.skipHidden:
+        pop     hl
+        ld      bc,objdef
+        add     hl,bc
+        inc     hl
+        ld      a,(hl)
+        dec     hl
+        and     a
+        jr      nz,.l1                     ; high byte of objdef ptr<>0
+        ld      a,(hl)                     ; low byte = command - type of execution block
+        dec     a
+        jp      z,.exeAnim                 ; 1 - use kernel exeprt (chain of addresses and parametters)
+        dec     a
+        jp      z,.runCode                 ; 2 - just jump to the code
+        ret
+
+.runCode:
+        inc     hl
+        inc     hl
+        jp      (hl)
+
+.exeAnim:
+        inc     hl
+        inc     hl
+        ld      a,(hl)
+        inc     hl
+        ld      h,(hl)
+        ld      l,a
+        jp      @exeptr
+
+.setClip:                                  ; for objects that are too big to be displayed, objdef.clip needs to be set
+                                           ; to avoid erasing unused area
+        ld      hl,(ix+mobdef.objptr)
+        ld      ix,hl
+        ld      bc,objdef
+1       ld      (ix+objdef.clip),#55       ; just fake value for debug
+        add     ix,bc
+        ld      a,(ix+1)                   ; if hi-byte of objdef = 0 --> end of objdef(s)
+        and     a
+        jr      nz,1B
+        ret
+
+; --- fill rectangle
+/*
+          callix        fillRct,.fill1
+          callix        fillRct,.fill2
+.fill1:    rctf 0,#81,32,2,#ff,0
+.fill2:    rctf 0,#85,32,1,#aa,0
+
+;rectangle fill
+        STRUCT rctf
+posx:   db     0         ; char
+posy:   db     0
+wdth:   db     0         ; char
+hght:   db     0
+fill:   db     0
+mode:   db     0         ; 0-1  00 - put, 01 - or, 10 - and, 11 xor
+                         ; 2    vram addr : 0=#4000, 1=#c000
+                         ; 3    rotate gfx: 0=don't, 1=rrc <fill> every next line
+                         ; 4    attributes
+        ENDS
+*/
+fillRct:
+        ld     a,(ix+rctf.mode)
+        and    3
+        ld     b,_ldae
+        jr     z,1F
+        dec    a
+        ld     b,_ore
+        jr     z,1F
+        ld     b,_ande
+        dec    a
+        jr     z,1F
+        ld     b,_xore
+1       ld     a,b
+        ld     (.mod),a
+        ld     c,(ix+rctf.posx)
+        ld     b,(ix+rctf.posy)
+
+        call   PixCY2Adr                   ; calc pixel address
+        bit    4,(ix+rctf.mode)
+        call   nz,AtrPx2Atr                ; if enabled, recalculate to attributes
+        bit    2,(ix+rctf.mode)            ; #c000 or #4000 vram
+        jr     z,1F
+        set    7,h
+1       ld     c,(ix+rctf.hght)
+        ld     e,(ix+rctf.fill)
+.l2:    ld     b,(ix+rctf.wdth)
+        push   hl
+.l1:    ld     a,(hl)
+.mod:   nop                                ; ld, and, or, xor e
+        ld     (hl),a
+        inc    l
+        djnz   .l1
+        pop    hl
+        bit    4,(ix+rctf.mode)
+        jr     z,1F
+        push   bc
+        ld     bc,#20
+        add    hl,bc
+        pop    bc
+        jr     2F
+1       call   vid
+2       bit    3,(ix+rctf.mode)            ; rrc
+        jr     z,1F
+        rrc    e
+1       dec    c
+        jr     nz,.l2
+        ret
+
+scrCopy:
+        ld      a,(vpage.vram)
+        and     a
+        jp      z,scrCopyTo5
+        jp      scrCopyTo7
+
+scrCopyTo7: = mmu.cpscr57
+scrCopyTo5: = mmu.cpscr75
+scrClear:
+        ld    a,xh
+        ld    (screen.color),a
+        jp    mmu.clsxi
+
+/*
+        ld      a,(@page)
+        ex      af,af
+        page_ar o5
+        call    .clp
+        page_ar o7
+        call    .clp
+        ex      af,af
+        page_a
+        ret
+.clp:
+        ld    hl,#c000
+        ld    d,h,e,l
+        inc   e
+        ld    bc,#1800
+        ld    a,xl
+        ld    (hl),a
+        ldir
+        ld    bc,#2ff
+        ld    a,xh
+        ld    (hl),a
+        ldir
+        ld    (screen.color),a
+        ret
+*/
+
+;------------------
+; linetable down-up           
+mkldeftab_du:
+        ld    hl,linedef
+        ld    bc,#c0    
+.lp:    ld    a,#c0
+        sub   c
+        ld    (hl),a
+        cpi
+        jp    pe,.lp
+        ret
+
+;------------------
+; linetable up-down           
+mkldeftab_ud:
+        ld    hl,linedef
+        ld    bc,#c0
+.lp:    dec   c
+        ld    (hl),c
+        inc   c
+        cpi
+        jp    pe,.lp
+        ret
+
+;------------------         
+; make horizontal line vram table
+mklinetab:
+        call  .step1
+        call  .step2
+        ret
+.step1:
+        ld    ix,linedef
+        ld    hl,linetab
+.sl1:   ex    de,hl
+        ld    b,(ix+0)
+        ld    c,0
+
+        inc   ix
+        call  @PixXY2Adr        ; calculate vram address
+        set   7,h              ; 2nd vram
+        ex    de,hl
+        ld    (hl),e
+        inc   h
+        ld    (hl),d
+        dec   h
+        inc   l
+        jr    nz,.sl1
+        ret
+
+.step2:      
+        ld    de,lineadd
+.sl2:   push  de
+        ld    a,e
+        srl   a
+        srl   a
+        srl   a
+        ld    (de),a
+        inc   d
+        ld    a,e
+        and   7         
+        ld    hl,edtab
+        ld    c,a
+        ld    b,0
+        add   hl,bc
+        ld    a,(hl)
+        ld    (de),a        
+        inc   d          
+        ld    bc,8
+        add   hl,bc
+        ld    a,(hl)
+        ld    (de),a
+        pop   de         
+        inc   e
+        jr    nz,.sl2
+        ret
+
+;-------------------
+; bit identification of leff and reff
+;bit	leff	reff	description
+;---------------------------------------------------------------------
+;7 80    x	    	    left segment identifier (color is ignored)
+;6 40    x	   x	    do not draw color (skip line)
+;5 20    x	   x	    lock color (ignore shadow, contrast, brightness)
+;4 10    x	   x	    do not fade with z-distance
+;3 to 0	 x	   x	    color
+
+; ------------------
+; draw object based on ldata structure                    
+draw16:   
+;- conf draw
+          ld    a,(lsxy.clip)           ; test if object needs to be clipped
+          and   a
+          ld    hl,.noclip
+          jr    z,.dc1
+          ld    hl,.clip
+.dc1:     ld    (.jpclip+1),hl
+          ld    hl,(lsxy.posy16)
+          ld    (.posy+1),hl
+          ld    a,(screen.cltop)
+          ld    (.cltop+1),a
+          ld    a,(screen.clbot)
+          ld    (.clbot+1),a
+          ld    hl,ldata
+          
+.lp2:     ld    a,(hl)                  ; number of lines
+          and   a
+          jr    nz,1F
+            ld    a,5
+            add   a,l
+            ld    l,a
+            jr    .lp2
+
+1         ld    xl,a
+          inc   a
+          ret   z                       ; endmark
+          inc   l
+;--- add x-offset for the current object
+          ld    e,(hl)
+          inc   l
+          ld    a,e
+          rla
+          sbc   a,a
+          ld    d,a
+          ex    de,hl
+          ld    bc,(lsxy.posx16)
+          add   hl,bc
+          ld    (currObj.posx16),hl
+          ex    de,hl
+
+;--- segment colors and draw options
+          ld    c,(hl)                  ; left pattern
+          inc   l
+;--- check if line shall not be drawn, if not - modify line call to dummy
+          bit   6,c
+          ld    de,line
+          jr    z,1F
+          ld    de,dummy
+1         ld    (draw16.lcall+1),de
+          ld    b,(hl)                  ; right pattern
+          inc   l
+;--- check if line shall not be drawn, if not - modify line call to dummy
+          bit   6,b
+          ld    de,line
+          jr    z,1F
+          ld    de,@dummy
+1         ld    (draw16.rcall+1),de
+
+          ld    de,(light.leff)        ; light preferences e-left, d-right
+
+;---- left side of the line
+          ld    a,c
+          and   #0f
+;__
+          bit   5,c
+          call  z,line_fader            ; pos-z fade-out
+;__
+          bit   4,c                     ; fixed color. No light takes effect
+          jr    nz,2F
+;__ light
+          ld    c,a                     ; store main color to c_reg (preserve for right side)
+          add   a,e                     ; add light color
+          jp    m,1F                    ; too dark, = 0
+          cp    #0f
+          jp    c,2F                    ; too light = #0f
+          ld    a,#0f
+          jr    2F
+
+1         xor   a
+2         add   a,a
+          add   a,a
+;          ld    yl,a
+          ld    (.lpt+1),a              ;mod_ld_e = left pattern low addr
+
+;---- right side of the line
+
+.rght:    ld    a,b
+          and   #0f
+;__
+          bit   4,b                     ; fixed color
+          jr    nz,1F
+
+          ld    a,c                     ; get previous left color (main)
+1         bit   5,b                     ;
+          call  z,line_fader            ; pos-z fade-out
+          bit   4,b
+          jr    nz,2F
+;__
+          add   a,d
+          jp    m,1F
+          cp    #0f
+          jp    c,2F
+          ld    a,#0f
+          jr    2F
+
+1         xor   a
+2         add   a,a
+          add   a,a
+          ld    (.rpt+1),a              ; right pattern
+
+.drwl:    exx
+          ld    h,high dthPattern       ; dithering pattern table
+          ld    d,3                     ; used for AND Y position to get correct dithering byte 0-3
+          exx
+
+          ld    c,(hl)                  ; y-position of the segment
+          inc   l
+          ld    b,0
+          ex    de,hl
+          ld    hl,(lsxy.posy16)
+          add   hl,bc                   ; add relative segment y-pos to absolute object posy
+          ld    (.posy+1),hl
+          ex    de,hl
+          
+;          ld    a,xl
+;          and   a
+;          jp    z,.lp2
+
+.lp1:     ex    de,hl
+.posy:    ld    hl,#5555                ; (lsxy.posy16)
+.lp1a:    ld    a,h
+          and   a
+          jp    nz,.nextl               ; skip if d>0
+          ld    a,l
+.cltop:   cp    #55
+          jp    c,.nextl
+.clbot:   cp    #55
+;          ret   nc
+          jp    nc,.nextl 
+          ld    (.posy+1),hl
+          ld    xh,a
+          ex    de,hl
+.jpclip:  jp    .clip                   ; to be modified based on lsxy.clip flag
+
+.noclip:  ld    a,(currObj.posx16)      ; was lsxy
+          ld    (.ncpx+1),a
+.ncpx:    ld    c,#55                   ; position x
+          ex    de,hl
+          ld    a,(de)
+          add   a,c
+          ld    (.x3+1),a
+          inc   d
+          ld    a,(de)
+          add   a,c
+          ld    (.x2+1),a
+          ld    (.rx1+1),a
+          inc   d
+          ld    a,(de)
+          add   a,c
+          jp    .clskp
+          
+.clip:    ex    de,hl
+          ld    a,(de)
+          ld    c,a
+          rlca
+          sbc   a,a
+          ld    b,a
+          ld    hl,(currObj.posx16)     ; was lsxy
+          add   hl,bc
+          ld    a,h     ; 4
+          and   a
+          jp    m,.n1                   ; test if x3 is negative ==> object out of screen
+          neg           ; 8
+          or    h       ; 4
+          or    l       ; 4
+          ld    l,a     ; 4
+          rlc   h       ; 8
+          sbc   a,a     ; 4
+          xor   l       ; 4    ; 40T
+          ld    (.x3+1),a
+          inc   d
+          
+          ld    a,(de)
+          ld    c,a
+          rlca
+          sbc   a,a
+          ld    b,a
+          ld    hl,(currObj.posx16)     ; was lsxy
+          add   hl,bc
+          xor   a
+          sub   h 
+          or    h       ; 4
+          or    l       ; 4
+          ld    l,a     ; 4
+          rlc   h       ; 8
+          sbc   a,a     ; 4
+          xor   l       ; 4    ; 40T
+          ld    (.x2+1),a
+          ld    (.rx1+1),a
+          inc   d
+
+          ld    a,(de)
+          ld    c,a
+          rlca
+          sbc   a,a
+          ld    b,a
+          ld    hl,(currObj.posx16)     ; was lsxy
+          add   hl,bc
+          xor   a
+          sub   h 
+          jp    m,.n2                   ; test if x1 is positive ==> object out of screen
+          or    h       ; 4
+          or    l       ; 4
+          ld    l,a     ; 4
+          rlc   h       ; 8
+          sbc   a,a     ; 4
+          xor   l       ; 4    ; 40T
+
+.clskp:   ld    (.rx0+1),a
+          dec   d
+          dec   d
+          inc   e
+          push  de
+          
+.x3:      ld    e,#55
+.x2:      ld    c,#55
+
+          exx
+.rpt:     ld    e,#55         ; right (shadow) patterm
+          exx
+          
+          ld    b,xh
+.rcall:   call  line 
+
+          exx
+.lpt:     ld    e,#55         ; left pattern
+          exx        
+
+          ld    b,xh          ; pop b  
+.rx0:     ld    c,#55
+.rx1:     ld    e,#55
+          ld    a,(.x2+1)
+          cp    c
+.lcall:   call  nz,line          ; nz
+
+          ld    hl,(.posy+1)
+          inc   hl
+          ld    (.posy+1),hl
+          pop   hl
+          dec   xl
+          jp    nz,.lp1
+          jp    .lp2
+
+; --- do not draw current line if y position is out of screen
+.nextl:   inc   e
+          inc   hl
+          dec   xl
+          jp    nz,.lp1a
+          ld    (.posy+1),hl
+          ex    de,hl          
+          jp    .lp2
+
+; --- do not draw current line if x1,x3 are out of screen, skip to next one
+.n2:      dec   d
+          dec   d
+.n1:      inc   e
+          ld    hl,(.posy+1)
+          inc   hl
+          dec   xl
+          jp    nz,.lp1a
+          ld    (.posy+1),hl
+          ex    de,hl          
+          jp    .lp2
+
+;recalc color based on z-pos
+; input a:col 0-15, return a: new col
+; uses: _fade, mob.posz, preserve HL
+line_fader:
+          exx
+          ld    e,a            ; c dith pattern
+          ld    bc,(mob.posz)
+          ld    hl,(scene.fade)
+          sub   hl,bc
+          jp    nc,.nofade
+
+          ld    a,h
+          sub   #ff            ; #feff and lower raises cy
+          sbc   a,a            ; #ff00 and higher don't
+          cpl                  ; mask is 0 (dark objects) or #ff
+          and   l              ; mask with l
+          srl   a
+
+          call  math.mul7a
+.nofade:  exx
+          ret
+
+/*
+line_fader:
+          exx
+          ld    c,a            ; c dith pattern
+          ld    de,(mob.posz)
+          ld    hl,(scene.fade)
+          sub   hl,de
+          jp    nc,.nofade
+          ld    b,l
+          ld    de,(mob.posz)
+          ld    hl,(scene.far)
+          sub   hl,de
+
+          sbc   a,a           ; negative = object is behind FAR border => shall not be displayed
+          cpl
+          and   c             ; for those objects dithering pattern is 0
+          ld    c,a           ; otherwise c stays as is
+
+          xor   a
+          sub   h
+          sbc   a,a           ; test if h>0  then a=255
+
+          or    b
+          srl   a             ; ~ld a,l --> in l is z position for fade-out
+
+          ld    e,c
+          call  math.mul7a
+.nofade:  exx
+          ret
+*/
+/*
+line_fader_old:
+          exx
+          ld    c,a
+          ld    hl,(mob.posz)
+          ld    de,(scene.fade)
+          sub   hl,de
+          jp    c,.nofade
+          add   hl,de
+          ex    de,hl
+          ld    hl,(scene.far)
+          sub   hl,de
+          sbc   a,a           ; negative = object is behind FAR border => shall not be displayed
+          cpl
+          and   c             ; for those objects dithering pattern is 0
+          ld    c,a
+          xor   a
+          sub   h
+          sbc   a,a           ; test if h>0  then a=255
+          or    l
+          srl   a
+          ld    e,c
+          call  math.mul7a
+.nofade:  exx
+          ret
+*/
+
+;---------------------
+; draw horizontal line
+; b=y position, e=x2, c=x1, h'=pattern table, d=3 (and y-pos for pattern line)
+;                           e'=pattern low addr (pattern no. * 4) 
+line:
+/*
+          exx   
+          ld    h,high dith2
+          ld    e,3
+          add   a,a      ;a = pattern 0-15
+          add   a,a
+          ld    l,a      ;hl = pattern base addr
+*/
+          ld    a,e           ; check if left is lower than right
+          cp    c
+          ret   c
+          ld    h,high linetab
+          ld    l,b           ; l=y-pos
+          ld    a,(hl)        ; low addr from y
+          inc   h
+          ld    d,(hl)        ; vram high
+          inc   h
+          ld    l,e           ; e=x2
+          or    (hl)          
+          ld    e,a           ; de=vram of x2
+          inc   h
+
+; jump here from previous line l-xpos
+.simp:    ld    b,(hl)        ; mask right side
+          dec   h
+          ld    l,c           ; vram low           
+          sub   (hl)          ; vram low x2-x1 = number of bytes
+          and   #1f
+          jr    nz,.long      ; draw long line
+          
+          ld    h,high lineml
+          ld    a,b          ; l=left side, b=mask righ side
+          or    (hl)         ; or left mask with right mask
+          ld    c,a          ; c=resulting mask
+
+          ld    a,d          ; vram high addr
+          exx
+          and   d            ; and 3
+          add   a,e          ; add pattern
+;.pmod:    or    #00          ; pattern offset
+          ld    l,a          
+          ld    a,(hl)       ; a=pattern gfx
+          exx   
+          ld    b,a
+          
+          ld    a,(de)
+          xor   b
+          and   c
+          xor   b
+          ld    (de),a
+          ret   
+
+;-------------                        
+.width:   EQU   30                 
+.long:       
+          cpl
+          add   a,a
+          add   a,64
+          ld    (.jr+1),a
+          
+          ld    h,high lineml
+          ld    l,(hl)       ; l=mask left side    
+
+          ld    a,d
+          exx
+          and   d
+          add   a,e
+          ld    l,a
+          ld    a,(hl)
+          exx   
+          ld    c,a          ; get pattern as above
+
+          ld    a,(de)       ; mask right side
+          xor   c
+          and   b
+          xor   c
+          ld    (de),a
+
+          ex    de,hl
+          
+.jr:      jr    $
+          dup   .width
+          dec   l            ; fill line with pattern
+          ld    (hl),c
+          edup
+
+          dec   l
+
+          ld    a,(hl)       ; mask left side
+          xor   c
+          and   e
+          xor   c
+          ld    (hl),a
+          ex    de,hl
+          ret
+
+;----------------------------------------------------
+; calculate mid-position for each line. Using "angle"
+calcMid:
+        ld      a,(vpage.mult)
+        page_c
+
+; additional shadow by altering odd/even line angles
+        ld      a,(light.shade)         ; angle of shade area
+        ld      l,a                     ; lower limit
+        ld      a,(currObj.angle)
+        and     #3f
+        ld      e,a
+        sub     l
+        jp      nc,1F
+        xor     a
+1       ld      (.mds2+1),a
+        ld      d,a
+        ld      a,e
+        add     a,l
+        cp      #40
+        jp      c,1F
+        ld      a,#3f
+1       xor     d
+
+        ld      (.midx+1),a             ; xor new angle position every next line
+        ld      (.mdx2+1),a
+
+        ld      d,high ldata
+        ld      e,high ldatl
+        ld      c,high ldatm
+        ld      l,0
+
+.lp2:   ld      h,d              ; high ldata
+        ld      a,(hl)
+        and     a
+        jp      nz,.s3
+;     .5 inc     l
+        ld      a,5
+        add     a,l
+        ld      l,a
+        jp      .lp2
+
+.s3:    ld      b,a
+        inc     a
+        ret     z
+     .4 inc     l
+
+        ld      a,(lsxy.posy16)
+        add     a,(hl)                  ; y-offset
+        inc     l                       ; fix-pattern blinking
+        rra                             ; test of bit 0 (odd even lines)
+.mds2:  ld      a,#55
+        jr      c,1F
+.mdx2:  xor     #55
+1       ld      (.mids+1),a             ; store new angle start position
+
+.lp1:
+        ld      h,e              ; left
+        ld      a,(hl)
+;        debug_border_a
+        ld      h,d              ; right
+        add     a,(hl)
+        jp      pe,1F
+        sra     a
+        db      _cpnn
+1       db      _rra
+        ld      xl,a
+
+        ld      a,(hl)         ; right
+        ld      h,e            ; left
+        sub     (hl)           ; right-left
+        srl     a              ; /2 = radius
+;---
+        exx
+        ld      e,a               ; e=radius
+;        ld      a,(currObj.angle)
+.mids:  ld      a,#55
+.midx:  xor     #55
+        ld      (.mids+1),a
+        ld      c,a
+        ld      b,0
+        ld      hl,costab
+        add     hl,bc
+        ld      a,(hl)            ; a=cos(angle)
+        and     a
+        jp      m,.negs
+        rl      e
+        rra
+        rr      e
+        or      #c0               ; must be paged in multab page
+        ld      d,a
+        ld      a,(de)
+        jp      .s1
+
+.negs:  neg
+        rl      e
+        rra
+        rr      e
+        or      #c0
+        ld      d,a
+        ld      a,(de)
+        neg
+.s1:    exx
+;---
+.s2:    ld      h,c               ; high ldatm
+        add     a,xl              ; center shadow according to average of left+right side
+        ld      (hl),a
+        inc     l
+        djnz    .lp1
+        jp      .lp2
+
+;----------------------------------------------------
+calcLeft:
+        ld      de,ldatl
+        ld      l,e
+.lp2:   ld      h,high ldata
+        ld      a,(hl)
+        and     a
+        jp      nz,.s2
+          ld      a,5
+          add     a,l
+          ld      l,a
+          jp      .lp2
+
+.s2:    ld      b,a                    ; b=height
+        inc     a
+        ret     z
+
+; db height
+; db drawing x-offset
+; db shader left
+; db shader right
+; db drawing y-offset
+        inc     l                      ;
+        inc     l                      ;
+;/*
+        inc     l
+        ld      a,(hl)                 ; shader right
+        and     a
+        jp      m,.s11                 ; bit7 = 1, asymetric then goto s11
+        dec     l
+;*/
+        bit     7,(hl)                 ; test of leff (mark of asymetric object)
+        ld      c,0                    ; symetric (ld c,0, ld a,c = xor a)
+        ld      h,high ldata
+        jr      z,.s1
+;-- asymetric section
+        ld      h,d
+        dec     l
+        ld      c,(hl)                 ; x-offset
+        inc     l
+;-- symetric
+.s1: .3 inc     l
+.llp1:    ld      e,l
+          ld      a,c
+;          debug_border_a
+          sub     (hl)
+          ld      (de),a               ; x-offset from right side
+          inc     l
+          djnz    .llp1
+        jp      .lp2
+;/*
+; --- constant width (//)
+.s11:   ld      c,a
+        dec     l
+        ld      a,(hl)
+        and     a
+        jp      p,.s1l:
+;---- right shadow
+.s1r:   and     #7f
+        ld      (hl),0
+        inc     l
+        ld      (hl),a
+        inc     l
+        inc     l
+1       ld      e,l
+          ld      a,(hl)
+;          debug_border_a
+          add     a,c
+          ld      (de),a               ; x-offset from right side
+          inc     l
+          djnz    1B
+        jp      .lp2
+
+;---- left shadow
+.s1l:   inc     l
+        ld      (hl),0
+        inc     l
+        inc     l
+1       ld      e,l
+          ld      a,(hl)
+;          debug_border_a
+          add     a,c
+          ld      (de),a               ; x-offset from right side
+          inc     l
+          djnz    1B
+        jp      .lp2
+;*/
+; ---------------------------------------
+makeStars:
+;calls: makeStars.erase
+;       makeStars.draw
+;using: struct called "dstar"
+/*
+        STRUCT dstar
+seed1:  dw     0
+seed2:  dw     0
+count:  db     0         ; number of stars
+cltop:  db     0         ; clip top
+clbot:  db     0         ; clip bot
+dmode:  db     0         ; draw mode (bit 7=0 --> draw in main loop)
+*/
+        include "demo/rotoid/makestars.a80"
+
+; ---------------------------------------
+; make power table
+mkpwrt: ld      ix,pwrt
+.lp1:   ld      a,xl
+        ld      d,0
+        ld      e,a
+        call    math.bsmul0816
+        ld      (ix+0),l
+        inc     xh
+        ld      (ix+0),h
+        dec     xh
+        inc     xl
+        jr      nz,.lp1
+        ret
+; ---------------------------------------
+; make square root table
+mksqrt: ld      ix,sqrt
+        ld      hl,0
+        ld      bc,maxradius*maxradius
+.lp1:   push    hl
+        call    math.sqr
+        pop     hl
+        ld      (ix+0),a
+        inc     ix
+        cpi
+        jp      pe,.lp1
+        ret
+
+/*
+; make square root table (slow version)
+mksqrts:
+        ld      ix,sqrt
+        ld      hl,0
+        ld      bc,maxradius*maxradius
+.lp1:   push    hl,bc
+        call    SqrtHL4
+        pop     bc,hl
+        ld      (ix+0),e
+        inc     ix
+        cpi
+        jp      pe,.lp1
+        ret
+*/
+
+eraseObject:
+        bit     6,(iy+objdef.options)      ; do not erase object
+        ret     nz
+        ld      a,(screen.cltop)
+        ld      (.cy1+1),a
+        ld      a,(screen.clbot)
+        ld      (.cb+1),a
+        ld      a,(iy+objdef.clip)
+        cp      2
+        ret     nc
+
+        ld      a,(iy+objdef.bbhght)
+        and     a
+        ret     z
+        ld      c,a
+
+        ld      hl,(iy+objdef.bboxy)
+.chky:  ld      a,h
+        and     a
+        jr      nz,.nexty
+        ld      a,l
+.cy1:   cp      #55                  ; (iy+objdef.cltop)
+        jr      nc,.s3
+        
+.nexty: inc     hl
+        dec     c
+        jr      nz,.chky
+        ret                          ; was too high to draw, ret
+        
+.s3:    ld      (.pos+1),a          ; l=a = new Y position
+        ld      a,c                 ; remaining height
+        ld      (.hg+1),a
+        
+        ld      c,(iy+objdef.bboxx)
+        ld      h,high linetab
+        ld      a,(hl)
+        inc     h
+        ld      d,(hl)
+        inc     h
+        ld      l,c
+        add     a,(hl)
+        ld      e,a
+        ex      de,hl
+        
+        ;ld      a,(iy+objdef.clbot)
+        ;ld      (.cb+1),a
+        ld      a,(iy+objdef.bbwdth)
+        cpl                              
+        add     a,a
+        add     a,64
+        ld      (.jr+1),a
+
+        ld      a,(run.vpage+1)
+        page_c
+
+;        ld      a,(currObj.fill)
+;        ld      (.fill+1),a
+
+.pos:   ld    d,#55
+.hg:    ld    b,#55
+.lp1:   
+;        xor   a
+.fill:  ld    a,#55         
+        IFDEF _erasedebug
+         ld    a,#55                     ; debug
+        ENDIF
+        ld    e,l
+.jr:    jr    $
+        dup   32
+          ld    (hl),a
+          inc   l
+        edup
+        ld    l,e
+        inc   d
+        
+.cb:    ld    a,#55
+        cp    d
+        ret   c
+
+        inc     h
+        ld      a,h
+        and     7
+        jr      nz,.s1
+        
+        ld      a,l
+        add     a,32
+        ld      l,a
+        jp      c,.s1
+
+        ld      a,h
+        sub     8
+        ld      h,a
+.s1:
+        djnz    .lp1
+        ret 
+
+; Light set-up and calculation  -------------
+; calc light, modes:
+; bit 0: 0 = angle is calculated from high byte of posx
+;        1 = angle is calculated from low byte of posx
+; bit 1: 0 = light_z is ignored for brightness
+;        1 = (object_z - light_z)<0 dark, >0 bright
+
+setLight:
+        ld      c,objdef.options
+        ld      b,0
+        add     hl,bc
+        ld      a,(hl)
+        bit     2,a
+        jp      z,calcLight
+        and     #03
+        ld      (light.mode),a
+        ld      hl,(ix+mobdef.posx)
+        ld      (light.posx),hl
+        ld      hl,(ix+mobdef.posz)
+        ld      (light.posz),hl
+        ld      a,_scf
+        ld      (calcLight.tgl1),a
+        ld      (calcLight.tgl2),a
+        ret
+
+calcLight:
+        ld      c,0                     ; brightness correction
+        ld      a,c
+        ld      (.blk+1),a
+        ld      a,(light.mode)
+        bit     1,a
+        jp      z,.objx                 ; change bright according to difference in Z-pos?
+
+;calculate brightness correction based on posx and posz
+        ld      hl,(ix+mobdef.posz)
+        ld      bc,(light.posz)
+        sub     hl,bc
+        ld      a,_scf
+        jp      p,1F
+          ld      a,13                    ; dark side of the light brightness decrease
+          ld      (.blk+1),a
+          ld      a,_anda
+1       ld      (.tgl1),a
+        ld      (.tgl2),a
+        ex      de,hl
+        ld      hl,(ix+mobdef.posx)
+        ld      bc,(light.posx)
+        sub     hl,bc
+;abs hl
+2       bit     7,h
+        jr      z,1F
+        xor     a
+        sub     l
+        ld      l,a
+        sbc     a,a
+        sub     h
+        ld      h,a
+;abs de
+1       bit     7,d
+        jr      z,1F
+        xor     a
+        sub     e
+        ld      e,a
+        sbc     a,a
+        sub     d
+        ld      d,a
+1
+        srl     h : rr  l
+        srl     h : rr  l
+
+        srl     d : rr  e
+
+;-- tests prior powers > 8 bit - abs values too big (far)
+        ld      a,h
+        and     a
+        jr      nz,.s0e
+        ld      a,d
+        and     a
+        jr      nz,.s0e
+
+;-- power of abs values
+        ld      h,high pwrt
+        ld      c,(hl)
+        inc     h
+        ld      b,(hl)             ; bc = l^2
+        dec     h
+        ld      l,e
+        ld      e,(hl)
+        inc     h
+        ld      d,(hl)             ; de = e^2
+        ex      de,hl
+        add     hl,bc              ; hl = l^2 + e^2
+
+;-- tests of overflow
+        jp      c,.s0e             ; squares higher than #ffff
+        ld      a,#3f
+        cp      h
+        jp      c,.s0e             ; sum of squares higher than sqrt table
+
+;-- sqrt
+        ld      a,(@page)
+        ex      af,af
+          ld      a,(vpage.sqrt) : page_a
+        ld      a,h
+        or      high sqrt
+        ld      h,a
+        ld      a,(hl)             ; distance | a = sqrt(hl)
+
+;-- divide to get brightness range
+        rra
+        rra
+        and     %00111111
+        ld      c,a
+          ex      af,af : page_a
+
+        ld      a,#10
+        sub     c
+
+        jp      c,.s0e             ; >16?
+        ld      c,a                ; no
+        jr      .objx
+
+.s0e:   ld      c,#00                ; distance too far => c=0 no change of brightness
+
+.objx:  ld      de,(light.bright)  ; e-brightness, d-contrast
+        ld      a,7                ; 7 half of the contrast range
+        sub     d
+        ld      d,a
+        ld      a,e
+.blk:   sub     #55                ; brigntness decrease when light is behind object
+        add     a,c                ; brightness+distance
+        ld      e,a
+
+        ld      a,(light.mode)
+        bit     0,a
+        jp      nz,.m0             ; .m0 > calculate from lower byte of positions
+        ld      a,(light.posx+1)
+        and     a
+        jp      m,.s3
+
+;--- positive value
+.s2:    rra
+        and     #3f
+        ld      l,a
+        ld      a,#3f
+        sub     l
+        ld      (light.angle),a
+        ld      a,l
+        rra
+        rra
+        and     #0f
+        ld      l,a
+        ld      a,e                     ; brightness
+        ld      (light.reff),a
+        add     a,d                     ; contrast
+        sub     l                       ; sub shadow difference
+        ld      (light.leff),a
+        ret
+
+;--- negative                           ; de = brightness, contrast, a=x-difference (pos_object - pos_light)
+.s3:    neg
+.s31:   rra
+        and     #3f
+        ld      l,a
+        ld      (light.angle),a
+        ld      a,l
+        rra
+        rra
+        and     #0f
+        ld      l,a
+        ld      a,e
+        ld      (light.leff),a
+        add     a,d
+        sub     l
+        ld      (light.reff),a
+        ret
+
+.m0:    ld      hl,(ix+mobdef.posx)
+        ld      a,b
+        ld      bc,(light.posx)
+        sub     hl,bc
+        ld      b,a
+        jp      m,.s30
+
+;light from left
+        xor     a
+        sub     h
+        sbc     a,a
+        or      l
+        rra
+.tgl1:  scf
+        jp      c,.s31                    ; .s31 when light is in front of object
+        jp      .s2                     ; .s2 when light is behind the object
+
+; light from right
+.s30:
+        xor     a
+        sub     l
+        ld      l,a
+        sbc     a,a
+        sub     h       ; h>0 - cy
+        ld      h,a
+        xor     a
+        sub     h
+        sbc     a,a     ; #ff
+        or      l
+        rra
+.tgl2:  scf
+        jp      c,.s2                     ; .s2 when light is behind the object
+        jp      .s31                    ; .s31 when light is in front of object
+
+; -------------
+; calculate x-data
+
+; -------------        
+; right side
+calcRight:                                                               
+        ld	    iy,(lsxy.obdef)           ; line command data
+        xor     a                         ; do not clip by default
+        ld      (lsxy.clip),a             ; clip by default in case  
+        ld      a,(lsxy.scale)            ; if bit 7 of .scale is set then no scaling is applied        
+        exx
+        ld      c,a                       ; c=scale factor
+        ld      l,0
+        exx
+      
+.cxloop:
+        ld      a,(vpage.scen)            ; to return from calc.arc that changes page
+        page_a
+
+        exx
+        ld      h,high ldata
+        exx
+        ld      a,(lsxy.options)
+        ld      c,a
+        ld	    a,(iy+symobj.type)        ; read object type (bit 7=1; calculate right side)
+        and	    #7f
+        jp	    z,.arc                    ; 0 calculate arc
+        dec	    a
+        jp	    z,.lin                    ; 1 calculate line
+        res     6,c
+        dec     a
+        jr      z,.box                    ; 2 calculate bounding box
+        set     6,c
+        dec     a
+        jr      z,.box                    ; 3 bounding box only (no erase object)
+        exx
+        ld      (hl),#ff                  ; end mark
+        exx
+        ret
+;-----------------------------------------
+.box:   ld      a,c
+        ld      (lsxy.options),a
+        ld      a,(iy+symobj.par1)
+        ld      (eraseObject.fill+1),a
+        ld      a,(lsxy.scale)
+
+        ld	    e,a
+        rla
+        sbc     a,a
+        or      e                         ; if a>127, then 127
+        and     #7f
+
+        ld      e,a
+        ld      a,(iy+symobj.yoff)        ; half of bounding box height
+        call    math.mul87                ; math.mul7b
+        ld      c,a
+        and     a
+        jr      z,1F                      ; if height is zero, keep it to skip erasing object
+        inc     c                         ; improve rounding error
+1       ld      b,0
+
+;-- check clip top/bottom
+        ld      hl,(lsxy.posy16)
+        ld      a,(screen.clbot)
+        ld      e,a
+        ld      d,0
+        sub     hl,de
+        jp      p,.s0                    ; posy > clip_bottom screen?
+
+        ld      hl,(lsxy.posy16)
+        ld      (lsxy.bboxy),hl          ; save y-position of bounding box
+        ld      d,h
+        ld      e,l
+        
+        add     hl,bc
+        xor     a
+        sub     d 
+        or      d
+        ld      b,a
+        xor     a
+        sub     h  
+        or      h
+        add     a,b
+        jr      nc,.s1
+.s0:    xor     a
+        ld      (lsxy.bbhght),a
+        cpl
+        ld      (lsxy.clip),a
+        ret
+
+.s1:    ld      a,(screen.cltop)
+        ld      e,a
+        ld      d,0
+        sub     hl,de
+        jp      m,.s0
+        
+        ld      a,c
+        ld      (lsxy.bbhght),a
+
+; ------ width
+        ld      a,(lsxy.scale)
+
+        and     a
+        jp      p,1F
+        ld      a,#7f                    ;
+1
+        ld      e,a
+        ld      a,(iy+symobj.woff)        ; woff holds max width of the object
+        call    math.mul87                ; resize width
+        ld      hl,(lsxy.posx16)
+        inc     a
+        ld      c,a
+        ld      b,0
+        add     hl,bc                     ; hl new position of right boundary
+        ld      d,h
+        ld      e,l                      
+                
+        ld      hl,(lsxy.posx16)
+        xor     a                         ;
+        sub     c                         ; neg C
+        ld      c,a                       ;
+        rla                               ;
+        sbc     a,a                       ;
+        ld      b,a                       ; neg 16 bit bc
+        add     hl,bc                     ; .. new position of left boundary
+
+; ----- clip and visibility check
+; by shuffling 7th bit of h and d we can get if bounding box
+; is in visible, partially visible or invisible part of the screen
+
+        ld     c,0
+        bit    7,h
+        jr     z,.c1                      ; test of left side <0
+        inc    c                          ; yes, inc c
+.c1:    bit    7,d                        ; test of right side <0
+        jr     z,.c2
+        inc    c
+.c2:    xor    a
+        sub    h                          ; 13.04.2019
+        rla
+        jr     nc,.c3
+        inc    c
+.c3:    xor    a
+        sub    d  
+        rla
+        jr     nc,.c4
+        inc    c
+.c4:    ld     a,c
+        ld     (lsxy.clip),a
+        ld     xl,a                       
+; -----         
+        xor     a
+        sub     h                         ; neg h
+        or      h                         ; a=0 or 255 
+        or      l                          
+        ld      l,a                       ; l=#ff if h>0 else l
+        rlc     h                         ; test if h<0
+        sbc     a,a                       ; 
+        xor     l                         ; if h<0 then a=0 else l                         
+        ld      (lsxy.bboxx),a            ; left position in the screen
+
+        ld      l,a                       ; calculated position in the screen of left side bbox
+        ld      h,high lineadd
+        ld      c,(hl)
+        xor     a
+        sub     d  
+        or      d    
+        or      e    
+        ld      e,a  
+        rlc     d    
+        sbc     a,a  
+        xor     e
+
+        ld      l,a
+        ld      a,(hl)
+        sub     c
+        ld      (lsxy.bbwdth),a           ; width of the bounding box
+        
+.s2:    ld	bc,symobj
+        add	iy,bc
+
+        ld      a,1
+        cp      xl
+        jp      nc,.cxloop                ; calculate object if it's in visible area (0,1,2)
+        ret                               ; otherwise skip      
+
+;-----------------------------------------
+.arc:   exx                               ; same section in .lin see comments
+        bit     7,(iy+symobj.type)        ; test of assymetric object definition
+        jp      z,.s2a
+        ld      a,(currObj.ldata)
+        ld      l,a
+        ld      h,high ldatl
+        jp      .s1a
+.s2a:   ld      h,high ldata
+        ld      a,l
+        ld      (currObj.ldata),a
+.s1a:   exx
+;-----------
+        ld      a,(lsxy.scale)
+;        bit     7,a
+        and     a
+        jp      m,.arc_noscale
+        ld      l,a
+        ld	    e,l,a,(iy+symobj.reff)
+        and     a
+        call    m,math.mul7b
+        ld      (.rf1+1),a
+        ld	    e,l,a,(iy+symobj.y0)
+        call    math.mul7b
+        ld      (.y01+2),a
+        ld	    e,l,a,(iy+symobj.y1)      ; height
+          and     a
+          jp      z,.restx                   ; height = 0 then skip
+;        call    math.mul7b
+        call    math.mul87
+          and     a                         ; 01.05.2019
+          jr      nz,1f                     ;
+          inc     a                         ; 19.01.2019 fix of line gaps due to INT(>x.5)
+1       ld      (.y11+1),a
+        ld	    e,l,a,(iy+symobj.xoff)
+        call    math.mul7b
+        ld      (.xo1+1),a
+        ld	    e,l,a,(iy+symobj.woff)
+        call    math.mul7b
+        ld      (.wo1+1),a
+        ld	    e,l,a,(iy+symobj.yoff)
+;        call    math.mul7b
+        call    math.mul87
+        ld      (.yo1+1),a
+        ld	    e,l,a,(iy+symobj.par1)    ; radius
+        call    math.mul7b
+        ld      (.p11+1),a
+
+; store segment into memory. Format:
+; db height
+; db drawing x-offset
+; db shader left
+; db shader right
+; db drawing y-offset
+
+        exx        
+.y01:   ld      xl,#55
+.y11:   ld      a,#55
+;        sub     xl                                   ; new height
+;        and     a
+;        jp      m,.rest
+        ld      xh,a
+        ld      (hl),a                                ; height
+;        and     a
+;        ex      af,af                                 ; save z-flag
+        inc     l
+.xo1:   ld      (hl),#55                              ; store x-offset
+        inc     l
+        ld      a,(iy+symobj.leff)                    ; store effect (aka shading)
+        ld      (hl),a                                ; effect
+        inc     l
+.rf1:   ld      (hl),#55
+;        ld      a,(iy+symobj.reff)
+;        ld      (hl),a
+        inc     l                
+.yo1:   ld      (hl),#55                              ; y-offset
+        inc     l
+.wo1:   ld      b,#55
+        exx
+;        ex      af,af
+.p11:   ld      a,#55
+        ld	    c,(iy+symobj.par2)                    ; c=quadrant
+;        call	nz,clc.arc                            ; call only if height <> 0
+        call	clc.arc
+        ld	bc,symobj
+        add	iy,bc
+        jp	.cxloop
+
+;-----------------------------------------------------
+.lin:   exx
+        bit     7,(iy+symobj.type)                   ; if segment has 7th bit set in type (calculate left side individually)
+        jp      z,.s2l                               ; then lets use previous buffer position (=right side calculated first!)
+        ld      a,(currObj.ldata)
+        ld      l,a
+        ld      h,high ldatl                         
+        jp      .s1l
+.s2l:   ld      h,high ldata
+        ld      a,l
+        ld      (currObj.ldata),a                    ; store previous buffer position
+.s1l:   exx
+;----------
+        ld      a,(lsxy.scale)
+;        bit     7,a
+        and     a
+        jp      m,.lin_noscale
+        ld      l,a
+        ld	    e,l,a,(iy+symobj.reff)
+        and     a
+        call    m,math.mul7b
+        ld      (.rf2+1),a
+        ld	e,l,a,(iy+symobj.y1)
+          and     a
+          jp      z,.restx
+;        call    math.mul7b
+        call    math.mul87
+          and     a                                    ; 01.05.2019
+          jr      nz,1F                                ;
+          inc     a                                    ; 19.01.2019 fix of line gaps
+1       ld      (.y12+1),a
+        ld	    e,l,a,(iy+symobj.xoff)
+        call    math.mul7b
+        ld      (.xo2+1),a
+        ld	    e,l,a,(iy+symobj.woff)
+        call    math.mul7b
+        ld      (.wo2+1),a
+        ld	    e,l,a,(iy+symobj.yoff)
+        call    math.mul87
+        ld      (.yo2+1),a
+
+        exx
+        ld	c,(iy+symobj.par1)                    ; slope low
+        ld	b,(iy+symobj.par2)                    ; slope high
+.wo2:   ld      d,#55
+        ld	e,0
+.y12:   ld      a,#55                                 ; height of line
+;        and     a
+;        jp      m,.rest                               ; height=0?
+        ld      xh,a
+        ld      (hl),a                                ; store number of lines
+;        and     a
+;        ex      af,af
+        inc     l
+.xo2:   ld      (hl),#55
+        inc     l
+        ld      a,(iy+symobj.leff)                    ; store effect (aka shading)
+        ld      (hl),a                                ; effect
+        inc     l
+.rf2:   ld      (hl),#55
+;        ld      a,(iy+symobj.reff)
+;        ld      (hl),a
+        inc     l
+.yo2:   ld      (hl),#55
+        inc     l
+;        ex      af,af
+;        call	nz,clc.line
+        call	clc.line
+.rest:  exx
+.restx: ld	    bc,symobj
+        add	    iy,bc
+        jp	    .cxloop
+
+;-----------------------------------------------------
+.arc_noscale:
+        ld	c,(iy+symobj.par2)                    ; c=quadrant
+        exx
+        ld	b,(iy+symobj.woff)                    ; b=w-offset
+        ld	a,(iy+symobj.y0)   : ld xl,a
+        ld	a,(iy+symobj.y1)                      ; ld xh,a
+        and     a
+        jp      z,.rest
+        ld      xh,a
+        ld      (hl),a                                ; store number of lines
+        inc     l
+        ld      a,(iy+symobj.xoff)
+        ld      (hl),a
+        inc     l
+        ld      a,(iy+symobj.leff)                    ; store effect (aka shading)
+        ld      (hl),a                                ; effect
+        inc     l
+        ld      a,(iy+symobj.reff)
+        ld      (hl),a
+        inc     l
+        ld      a,(iy+symobj.yoff)
+        ld      (hl),a
+        inc     l
+        exx
+        ld	a,(iy+symobj.par1)                    ; a=radius
+        call	clc.arc
+        ld	bc,symobj
+        add	iy,bc
+        jp	.cxloop
+
+;-----------------------------------------------------
+.lin_noscale:
+        exx
+        ld	c,(iy+symobj.par1)                    ; slope low
+        ld	b,(iy+symobj.par2)                    ; slope high
+        ld	d,(iy+symobj.woff)                    ; w-off (d will be new x-position)
+        ld	e,0
+        ld	a,(iy+symobj.y1)
+        and     a
+        jp      z,.rest
+        ld      (hl),a                                ; store number of lines (no zero check!)
+        ld      xh,a
+        inc     l
+        ld      a,(iy+symobj.xoff)
+        ld      (hl),a
+        inc     l
+        ld      a,(iy+symobj.leff)                    ; store effect (aka shading)
+        ld      (hl),a                                ; effect
+        inc     l
+        ld      a,(iy+symobj.reff)
+        ld      (hl),a
+        inc     hl
+        ld      a,(iy+symobj.yoff)
+        ld      (hl),a
+        inc     l
+        call	clc.line
+        exx
+        ld	    bc,symobj
+        add	    iy,bc
+        jp	    .cxloop
+
+;-----------------------------------------
+;                      Quadrant /2,1\
+;                               \3,0/
+; q0: x=sqr(r^2-y^2)
+; q1: x=sqr(r^2-(r-y)^2)
+; q2: x=r-sqr(r^2-(r-y)^2)
+; q3: x=r-sqr(r^2-y^2)
+; q4 = q0 | y0=y0+(r-height) - autocalculated
+; q5 = q2 | y0=y0+(r-height)
+
+        ld      c,0             ;quadrant
+        ld      xl,20           ; y0
+        ld      xh,30           ; height
+        ld      a,32            ; radius
+
+;---------------
+; calulate line or arc
+clc:
+.arc:
+        ex      af,af : ld a,(vpage.sqrt) : page_a : ex af,af
+        ld      h,high pwrt
+        ld      l,a
+        ld      e,(hl)
+        inc     h
+        ld      d,(hl)          ; de=radius^2
+        ex      de,hl
+        dec     c
+        jp      m,.q0
+        jp      z,.q1
+        dec     c
+        jp      z,.q2
+        dec     c
+        jp      z,.q3
+        dec     c
+        jp      z,.q4
+        dec     c
+        jp      z,.q5
+        dec     c
+        jp      z,.q6
+        dec     c
+        jp      z,.q7
+        ex      af,af : ld a,(vpage.scen) : page_a : ex af,af
+        ret
+
+.q4:    sub     xh
+        add     a,xl
+        ld      xl,a
+
+.q0:    ld      (.pwq0+1),hl      
+; q0: x=sqr(r^2-y^2)
+.pwq0:  ld      de,#5555        
+        ld      h,high pwrt
+        ld      a,xl            
+        ld      l,a
+        ld      c,(hl)
+        inc     h
+        ld      b,(hl)          ; bc=y^2
+        dec     h
+        ex      de,hl
+        sub     hl,bc           ; r^2-y^2
+        ld      a,h
+        or      high sqrt
+        ld      h,a
+        ld      a,(hl)          ; sqr(r-bc)
+        exx
+        add     a,b             ; add xoffset
+
+        jp      p,.s1           ; 181216 - add on to fix negative curve
+        xor     a
+.s1:
+        ld      (hl),a          ; store
+        inc     l
+        exx
+        ex      de,hl
+        inc     xl
+;        ld      a,xl
+;        cp      xh
+        dec     xh
+        jp      nz,.pwq0
+        ret
+
+.q5:    ld      c,a
+        sub     xh
+        add     a,xl
+        ld      xl,a
+        ld      a,c
+
+.q1:    ld      (.pwq1+1),hl
+; q1: x=sqr(r^2-(r-y)^2)
+        ld      (.q1r+1),a     
+.pwq1:  ld      de,#5555
+.q1r:   ld      a,#55
+        sub     xl              ; radius - y-pos
+        dec     a               ; y0+1
+        ld      h,high pwrt
+        ld      l,a
+        ld      c,(hl)
+        inc     h               
+        ld      b,(hl)          ; bc=(r-y)^2
+        dec     h
+        ex      de,hl
+        sub     hl,bc
+        ld      a,h
+        or      high sqrt
+        ld      h,a
+        ld      a,(hl)
+        exx     
+        add     a,b
+
+        jp      p,.s2           ; 181216 - add on to fix negative curve
+        xor     a
+.s2:
+        ld      (hl),a          ; store result
+        inc     l
+        exx
+        ex      de,hl
+        inc     xl
+;        ld      a,xl
+;        cp      xh
+        dec     xh
+        jp      nz,.pwq1
+        ret
+
+.q6:    ld      c,a
+        sub     xh
+        add     a,xl
+        ld      xl,a
+        ld      a,c
+
+.q2:    ld      (.pwq2+1),hl
+        ld      (.sq21+1),a
+        ld      (.sq22+1),a
+.pwq2:  ld      de,#5555
+.sq21:  ld      a,#55
+        sub     xl              ; radius - y-pos
+        dec     a               ; y0+1
+        ld      h,high pwrt
+        ld      l,a
+        ld      c,(hl)
+        inc     h
+        ld      b,(hl)
+        dec     h
+        ex      de,hl
+        sub     hl,bc
+        ld      a,h
+        or      high sqrt
+        ld      h,a
+.sq22:  ld      a,#55         ; radius-sqr(result)
+        sub     (hl)
+        exx     
+        add     a,b
+
+        jp      p,.s3           ; 181216 - add on to fix negative curve
+        xor     a
+.s3:
+        ld      (hl),a
+        inc     hl
+        exx
+        ex      de,hl
+        inc     xl
+;        ld      a,xl
+;        cp      xh
+        dec     xh
+        jp      nz,.pwq2
+        ret
+
+.q7:    ld      c,a
+        sub     xh
+        add     a,xl
+        ld      xl,a
+        ld      a,c
+
+.q3:    ld      (.pwq3+1),hl
+        ld      (.sq3+1),a
+.pwq3:  ld      de,#5555
+        ld      a,xl
+        ld      h,high pwrt
+        ld      l,a
+        ld      c,(hl)
+        inc     h
+        ld      b,(hl)
+        dec     h
+        ex      de,hl
+        sub     hl,bc
+        ld      a,h
+        or      high sqrt
+        ld      h,a
+.sq3:   ld      a,#55
+        sub     (hl)
+        exx     
+        add     a,b
+
+        jp      p,.s4           ; 181216 - add on to fix negative curve
+        xor     a
+.s4:
+        ld      (hl),a
+        inc     l
+        exx
+        ex      de,hl
+        inc     xl
+;        ld      a,xl
+;        cp      xh
+        dec     xh
+        jp      nz,.pwq3
+        ret
+
+.line:  ex      de,hl
+.lsm:   add	    hl,bc
+        ld      a,h
+;---
+        and     a
+        jp      p,.lsn
+        xor     a          ; in case h<0, put 0
+.lsn:   ld	    (de),a
+        inc     e
+        dec     xh
+        jp	    nz,.lsm
+        ex      de,hl
+        ret
+      
+;---------------
+; multiplication table
+; Not correct method. Temporary solution round_multab.a80
+
+        IFDEF _multabClc
+mkmultab_calc:
+        ld      bc,#80
+        ld      de,1
+        ld      xl,b            ; xl=0
+.lp2:
+        ld      xh,#c0          ; high multab
+        ld      hl,de
+.lp1:
+        ld      (ix+0),h
+        add     hl,de
+        add     ix,bc
+        ld      a,xh
+        out     (#fe),a
+        and     a
+        jr      nz,.lp1
+        inc     de
+        inc     de
+        inc     xl
+        ld      a,xl
+        rla
+        jr      nc,.lp2
+        ret
+        ENDIF
+
+        IFDEF _multabBmp
+mkmultab_bitmap:
+        ld      hl,#c000
+        ld      c,#80
+.l2:    ld      b,#80
+        ld      a,(hl)
+.l1:    add     a,(hl)
+        ld      (hl),a
+        inc     hl
+        djnz    .l1
+        dec     c
+        jr      nz,.l2
+        ret
+        ENDIF
+
+; this implements persp correction. Instead of x*f/z (*f would need to multiply 24bit and then divide later)
+; so lets do just x*256/z (x is 16bit so we make it 24 bit), divide by z-pos and then do *f
+; input hl=pos-x, bc=pos-z
+persp16b:
+;        debug_border_inc
+        ld      a,h
+        and     a
+        push    af
+        jp      p,.c1                   ; if positive, calc persp.
+        xor     a                       ; if negative, negate first
+        sub     l
+        ld      l,a
+        sbc     a,a
+        sub     h
+        ld      h,a
+.c1:    call    math.div2416c
+        ld      h,d
+        ld      l,e
+.fdiv:
+        ds      4*4,0
+/*
+        DUP     _focal                  ; 0=256, 1=128, 2=64, 3=32
+          srl     h
+          rr      l
+        EDUP
+*/
+.fend:
+;        debug_border 0
+        pop     af
+        ret     p                       ; positive then ret
+        xor     a                       ; if negative then neg result
+        sub     l
+        ld      l,a
+        sbc     a,a
+        sub     h
+        ld      h,a
+        ret
+
+.init:  ld      hl,.fdiv
+        ld      b,a
+        cp      4
+1       ld      (hl),#cb: inc hl
+        ld      (hl),#3c: inc hl
+        ld      (hl),#cb: inc hl
+        ld      (hl),#1d: inc hl
+        djnz    1B
+        ret     z
+        ld      (hl),#c3       : inc hl
+        ld      (hl),low  .fend: inc hl
+        ld      (hl),high .fend
+        ret
+
+/*
+persp_test:
+        ld      a,#80
+        ld      c,#40
+;------
+; calculate perspective of coordinate x'=x*f/z
+; f-focal length (64)
+; z-destination from z plane
+; a=coord_x (or y)
+; c=destination from z-plane
+; result in HL
+persp:
+        ld      h,a
+        xor     a
+        ld      l,a
+        jp      math.div1608
+*/
+
+;--------
+        include "demo/rotoid/mobhdi.a80"
+
+;--- create dithering pattern from dithering matrix
+iniDthPattern:
+        ld     hl,dthPattern
+        ld     e,16          ; number of patterns
+        ld     d,%10001000   ; initial pattern
+.l3:    push   ix
+        ld     c,4           ; number of matrix lines
+.l2:    ld     b,4           ;                  rows
+        ld     (hl),0        ; erase data in memory
+.l1:
+        ld     a,16          ; !! number of patterns
+        sub    e
+        cp     (ix+0)
+        jr     c,1f
+        ld     a,(hl)
+        or     d             ; merge pattern if below treshold
+        ld     (hl),a
+1       rrc    d             ; move pattern
+        inc    ix
+        djnz   .l1           ; repeat line (4 times = pattern repeats)
+        inc    hl
+        dec    c
+        jr     nz,.l2        ; next line
+        pop    ix
+        dec    e
+        jr     nz,.l3        ; next treshold
+        ret
+
+;--- white dithering pattern (black background)
+whtDthPattern:
+        ld      a,(dthPattern)
+        and     a
+        ret     nz
+        jr      invDthPattern
+;--- black dith pattern (white back)
+blkDthPattern:
+        ld      a,(dthPattern)
+        and     a
+        ret     z
+;--- invert pattern
+invDthPattern:
+        ld      hl,dthPattern
+        ld      bc,64
+        jp      invMobHDI.l1          ; mobhdi.a80
+
+        MODULE  math
+;-------------------------------------------------------------------------------
+; fast hl=e*a (C) BUSY
+
+mul0808:
+        db      026h,000h,06ch,054h
+        db      087h,030h,001h,019h
+        db      029h,087h,030h,001h
+        db      019h,029h,087h,030h
+        db      001h,019h,029h,087h
+        db      030h,001h,019h,029h
+        db      087h,030h,001h,019h
+        db      029h,087h,030h,001h
+        db      019h,029h,087h,030h
+        db      001h,019h,029h,087h
+        db      030h,001h,019h,059h
+        db      050h,0c9h	
+
+/*
+; divide hl/c, result in a
+div1608:
+        ld      b,16
+.l1:    add     hl,hl           ; unroll 16 times
+        rla                     ; ...
+        jr      c,$+5           ; _o_ mod
+        cp      c               ; ...
+        jr      c,$+4           ; ...
+        sub     c               ; ...
+        inc     l               ; ...
+        djnz    .l1
+;        bit     7,a
+        and     a
+;        ret     z
+        ret     p
+        ld      a,127
+        ret
+*/
+
+;; Rychle nasobenie 8*16=24 bitov (from z80bits by baze)
+;; A * DE = A:HL
+bsmul0816:
+        ld	c,#00
+	    ld	l,c
+    	ld	h,c
+    	add	a,a		; optimised 1st iteration
+    	jr	nc,$+4
+    	ld	h,d
+    	ld	l,e
+
+        ld  b,7
+1         add	hl,hl		; unroll 7 times
+          rla			; ...
+          jr	nc,$+4		; ...
+          add	hl,de		; ...
+          adc	a,c		; ...
+        djnz 1B
+        ret
+/*
+    	DUP 7
+          add	hl,hl		; unroll 7 times
+          rla			; ...
+          jr	nc,$+4		; ...
+          add	hl,de		; ...
+          adc	a,c		; ...
+    	EDUP
+        ret
+*/
+
+; ---------------------------------------------------------------------
+; fast 16-bit integer square root
+; 92 bytes, 344-379 cycles (average 362)
+; v2 - 3 t-state optimization spotted by Russ McNulty
+
+; call with hl = number to square root
+; returns    a = square root
+; corrupts  hl, de
+; source: john metcalf http://www.retroprogramming.com/2017/07/a-fast-z80-integer-square-root.html
+
+sqr:
+        ld a,h
+        ld de,0B0C0h
+        add a,e
+        jr c,sq7
+        ld a,h
+        ld d,0F0h
+sq7:
+; ----------
+        add a,d
+        jr nc,sq6
+        res 5,d
+        db 254      ; cp instruction, parametter is next byte => skip next instruction
+sq6:
+        sub d
+        sra d
+; ----------
+        set 2,d
+        add a,d
+        jr nc,sq5
+        res 3,d
+        db 254
+sq5:
+        sub d
+        sra d
+; ----------
+        inc d
+        add a,d
+        jr nc,sq4
+        res 1,d
+        db 254
+sq4:
+        sub d
+        sra d
+        ld h,a
+; ----------
+        add hl,de
+        jr nc,sq3
+        ld e,040h
+        db 210
+sq3:
+        sbc hl,de
+        sra d
+        ld a,e
+        rra
+; ----------
+        or 010h
+        ld e,a
+        add hl,de
+        jr nc,sq2
+        and 0DFh
+        db 218
+sq2:
+        sbc hl,de
+        sra d
+        rra
+; ----------
+        or 04h
+        ld e,a
+        add hl,de
+        jr nc,sq1
+        and 0F7h
+        db 218
+sq1:
+        sbc hl,de
+        sra d
+        rra
+; ----------
+        inc a
+        ld e,a
+        add hl,de
+        jr nc,sq0
+        and 0FDh
+sq0:
+        sra d
+        rra
+        cpl
+        ret
+
+;-------------------------------------------------------------------------------
+/*
+test:
+        ld    hl,#100
+        ld    de,#100
+        ld    bc,#20
+        call  div3216
+        ld    hl,#100
+        ld    de,0
+        ld    bc,#100
+        call  div3216
+        ld    hl,#100
+        ld    de,0
+        ld    bc,#200
+        call  div3216
+        ret
+*/
+;-------------------------------------------------------------------------------
+; division HL*256/C
+div2408a:
+        xor     a
+        ld      e,h
+        ld      h,l
+        ld      l,a
+
+;-- E:HL / C = HL
+        ld      b,24
+.l1:    add     hl,hl
+        rl      e
+        rla
+        jr      c,.l3           ; _o_ mod - this must be here! otherwise does not divide by >#7f
+        cp      c
+        jr      c,.l2
+.l3:     inc     l
+         sub     c  
+.l2:     djnz    .l1
+        ret     
+
+;-- division for perspective
+; input hl-posx, bc-posz
+div2416c:
+       ld       a,h
+       ld       d,l
+       ld       e,0
+       ld       hl,0  
+; Input: A:DE = Dividend, BC = Divisor, HL = 0
+; Output: A:DE = Quotient, HL = Remainder
+div2416_bc:
+        DUP     24
+        sll     e               ; unroll 24 times
+        rl      d               ; ...
+        rla                     ; ...
+        adc     hl,hl           ; ...
+        sbc     hl,bc           ; ...
+        jr      nc,$+4          ; ...
+        add     hl,bc           ; ...
+        dec     e               ; ...
+        EDUP
+        ret
+                    
+; a=+/- 127, e=0-127, a=result
+; requires mult table at #c000, page 1
+; (call mkmult at init)
+mul7b: 
+        ex      af,af
+        ld      a,(rotoid.vpage.mult)
+        page_a
+        ex      af,af
+;-----------
+        and     a                          ;4                          
+        jp      m,.negs                    ;10
+        rl      e                          ;8
+        rra                                ;4
+        rr      e                          ;8
+        or      #c0                        ;7
+        ld      d,a                        ;4
+        ld      a,(de)                     ;7 = sum 52
+;-----------
+        ex      af,af
+        ld      a,(rotoid.vpage.scen)
+        page_a
+        ex      af,af
+        ret
+        
+.negs:  neg                                ;8
+        rl      e                          ;8
+        rra                                ;4
+        rr      e                          ;8
+        or      #c0                        ;7                      
+        ld      d,a                        ;4
+        ld      a,(de)                     ;7
+        neg                                ;8 = sum 68
+;-----------
+        ex      af,af
+        ld      a,(rotoid.vpage.scen)
+        page_a 
+        ex      af,af
+        ret
+
+; a=0-255, e=0-127, a=result, l=e
+; requires mult table at #c000, page 1
+; (call mkmult at init)
+mul87: 
+        ex      af,af
+        ld      a,(rotoid.vpage.mult)
+        page_a
+        ex      af,af
+        ld      l,e                        ;uncomment if l is not initialized
+;-----------
+        and     a                          ;4                          
+        jp      m,.poss                    ;10
+        rl      e                          ;8
+        rra                                ;4
+        rr      e                          ;8
+        or      #c0                        ;7
+        ld      d,a                        ;4
+        ld      a,(de)                     ;7 = sum 52
+;-----------
+        ex      af,af
+        ld      a,(rotoid.vpage.scen)
+        page_a 
+        ex      af,af
+        ret
+
+.poss:  sub     #7f
+        rl      e
+        rra
+        rr      e
+        or      #c0
+        ld      d,a
+        ld      a,(de)
+        add     a,l        
+;-----------
+        ex      af,af
+        ld      a,(rotoid.vpage.scen)
+        page_a 
+        ex      af,af
+        ret
+
+mul7a:  ld      d,a
+        ex      af,af
+        ld      a,(@page)
+        ex      af,af
+        ld      a,(rotoid.vpage.mult)
+        page_a
+        ld      a,d
+        call    mul7bp
+        ex      af,af
+        page_a
+        ex      af,af
+        ret
+        
+; signed multiply, multab in current page
+mul7bp: 
+        and     a                          ;4                          
+        jp      m,.negs                    ;10
+        rl      e                          ;8
+        rra                                ;4
+        rr      e                          ;8
+        or      #c0                        ;7
+        ld      d,a                        ;4
+        ld      a,(de)                     ;7 = sum 52
+        ret
+        
+.negs:  neg                                ;8
+        rl      e                          ;8
+        rra                                ;4
+        rr      e                          ;8
+        or      #c0                        ;7                      
+        ld      d,a                        ;4
+        ld      a,(de)                     ;7
+        neg                                ;8 = sum 68
+        ret
+
+; calculate (co)sinus. e: amplitude, a: angle, returns a:     
+cos:    add     a,#40
+sin:    ld      l,a
+        ld      h,high rotoid.sintab
+        ld      c,(hl)
+        ld      a,(@page)
+        ex      af,af
+        ld      a,(rotoid.vpage.mult)
+        page_a
+        ld      a,c
+        call    mul7bp
+        ex      af,af
+        page_a
+        ex      af,af
+        ret          
+;-------------------------------------------------------------------------------
+        ENDMODULE ; end of math module
+/*
+; dithering matrices
+dthData:
+.v0:                            ; 4x4 ordered
+        db     1,8,2,10         ; 1,... modified matrix to have black and white) 0,... standard matrix
+        db     12,4,14,6
+        db     3,11,1,9
+        db     15,7,13,5
+.v1:                            ; 2X2 ordered
+        db     1,15,1,15
+        db     7,3,7,3
+        db     1,15,1,15
+        db     7,3,7,3
+
+; -------------
+; cosinus table
+costab:
+        db    #7F, #7E, #7E, #7D, #7C, #7B, #79, #77
+        db    #75, #72, #6F, #6C, #69, #65, #61, #5D
+        db    #59, #54, #4F, #4A, #45, #40, #3A, #35
+        db    #2F, #29, #23, #1D, #17, #11, #0A, #04
+        db    #FE, #F8, #F1, #EB, #E5, #DF, #D9, #D3
+        db    #CD, #C7, #C2, #BC, #B7, #B2, #AD, #A9
+        db    #A4, #A0, #9C, #98, #95, #91, #8E, #8C
+        db    #89, #87, #85, #84, #82, #81, #81, #81
+*/
+; -------------
+; misc
+fpstmp: db     0
+; -------------
+; line y-pos table
+linedef: = temp3k      ; deformation table of y-values
+
+; -------------
+; call print routine from resource manager
+; routine specified in inicmd and execmd, test specified in prttxt
+
+prttxt: dw     0
+inicmd: db     0
+execmd: db     0
+_print:
+         ld      a,(@page)
+         push    af
+         ld      a,(inicmd)
+         ld      de,res_tab
+         ld      hl,(prttxt)
+         call    rsc.runhl2ix
+
+1        ld      a,(execmd)
+         ld      de,res_tab
+         ld      hl,(prttxt)
+         call    rsc.runhl2ix
+         jr      nc,1B
+         pop     af
+         ld      (@page),a
+         page_c
+         ret
+; -------------
+end:
+        ENDMODULE
+
+s_e: = 0
+        IFDEF sce_ed
+s_e: = 1
+        ENDIF
+        IFDEF seg_ed
+s_e: = 1
+        ENDIF
+
+;------------------------------------------------------
+; rotoid editors
+;------------------------------------------------------
+        IF s_e=1
+          include "demo/rotoid/red.a80"
+        ENDIF
+
+;        include "libs/fader.a80"

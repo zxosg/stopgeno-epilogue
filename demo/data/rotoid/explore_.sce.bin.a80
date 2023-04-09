@@ -1,0 +1,82 @@
+; --------------------------------
+;  input file: explore.sce.bin
+;      lenght: 80
+; symbol file: q:\Development\Dev-ZX\_Kernel\main.sym
+; 31 May 2020 06:58:00
+	ld  hl,._scene_data
+	ld  de,scene
+	ld  bc,sceneSetup.len
+	ldir
+	ld   de,txs06.text
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobPyramid3
+	ld   c,10
+	ldir
+	ld   de,rotoid.mobPyramid1
+	ld   c,10
+	ldir
+	jp   ._cont_setup
+._scene_data:
+
+; scene:
+	dw   #0000	;.posx:
+	dw   #0030	;.posy:
+	dw   #FFF0	;.posz:
+	dw   #0300	;.far:
+	dw   #0038	;.fade:
+
+; light:
+	dw   #D000	;.posx:
+	dw   #0100	;.posz:
+	db  #00	;.bright:
+	db  #07	;.contrs:
+	db  #18	;.angle:
+	db  #00	;.leff:
+	db  #FA	;.reff:
+	db  #03	;.shade:
+	db  #00	;.mode:
+
+; screen:
+	dw   #007F	;.posx:
+	dw   #007B	;.posy:
+	db  #10	;.cltop:
+	db  #A7	;.clbot:
+	db  #06	;.color:
+
+; currObj:
+	dw   #C9DB	;.ptr:
+	db  #18	;.angle:
+	db  #00	;.ldata:
+	dw   #00FF	;.posx16:
+
+; obj_1:
+;	dw   rotoid.drawMobHDI	;#A5C7	;.drwexe:
+;	dw   pttPlanet	;#D944	;.mobptr:
+	dw   dtaPlanet	;#79C2	;.datptr:
+	db  #08	;.par1:
+	db  #00	;.par2:
+	dw   #0000	;.posx:
+	dw   #0088	;.posy:
+	dw   #0000	;.posz:
+
+; obj_2:
+;	dw   rotoid.drawMultiObject	;#98D5	;.drwexe:
+;	dw   rotoid.mobPyramid3	;#CAC3	;.mobptr:
+	dw   rotoid.objPyramid3	;#CA2A	;.datptr:
+	db  #7F	;.par1:
+	db  #18	;.par2:
+	dw   #FE00	;.posx:
+	dw   #0000	;.posy:
+	dw   #0080	;.posz:
+
+; obj_3:
+;	dw   rotoid.drawMultiObject	;#98D5	;.drwexe:
+;	dw   rotoid.mobPyramid1	;#CAAF	;.mobptr:
+	dw   rotoid.objPyramid1	;#C9C2	;.datptr:
+	db  #7F	;.par1:
+	db  #18	;.par2:
+	dw   #0040	;.posx:
+	dw   #0000	;.posy:
+	dw   #0000	;.posz:
+._cont_setup:

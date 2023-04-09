@@ -1,0 +1,18 @@
+     LUA
+         function binsave(filename, startaddress, binlen)
+             local fp
+             fp = assert(io.open(fname, "wb"))
+             for i = startaddress, startaddress+binlen, 1 do
+                 assert(fp:write( sj.get_byte(i) )
+             end
+             assert(fp:flush())
+             assert(fp:close())
+         end
+     ENDLUA
+
+ ;somewhere in your program
+     LUA
+         binsave("tapefiles/myprogram.tape", _c("StartGameLabel"),10)
+     ENDLUA
+
+
