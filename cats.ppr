@@ -129,9 +129,10 @@ kernel
 30=libs\rsc_load.a80
 31=demo\screenplay\demo_sync.a80
 32=demo\rotoid\rotoid_def.a80
+33=readme.md.txt
 [Selected Project Files]
 Main=main.a80
-Selected=main.a80
+Selected=readme.md.txt
 [demo\demo_txt.a80]
 TopLine=1
 Caret=1,1
@@ -244,3 +245,6 @@ Caret=19,17
 [demo\rotoid\rotoid_def.a80]
 TopLine=634
 Caret=21,657
+[readme.md.txt]
+TopLine=1
+Caret=89,8
